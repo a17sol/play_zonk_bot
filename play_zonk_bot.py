@@ -1,5 +1,5 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, PollAnswerHandler
 from random import randrange
 from collections import Counter
 
@@ -77,7 +77,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 		subsubtotal, dices_used = scoring(context)
 		if subsubtotal == 0:
 			context.chat_data["subtotal"] = 0
-			await query.edit_message_text(context.chat_data["cached_message"]+"\nОчки за ход: 0", 
+			await query.message.delete()
+			await context.chat_data["scoreboard"].edit_text(context.chat_data["cached_message"]+"\nОчки за ход: 0", 
 				parse_mode="html"
 			)
 			await next_move(update, context)
@@ -88,10 +89,21 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 				dice_amount = 6
 			context.chat_data["current_roll"] = [randrange(1, 7) for _ in range(dice_amount)]
 			context.chat_data["selected_dices"] = set()
+			await query.message.delete()
 			markup = make_dice_markup(user.id, context)
-			await query.edit_message_text(context.chat_data["cached_message"]+"\nОчки за ход: "+str(context.chat_data["subtotal"]), 
+			poll_msg = await context.bot.send_poll(
+				chat_id=update.effective_chat.id,
+		        question="Выбери кости",
+		        options=[str(i) for i in context.chat_data["current_roll"]] + ["Ничего"],
+		        is_anonymous=False,
+		        allows_multiple_answers=True,
+		        reply_markup=markup
+		    )
+			context.bot_data["poll:user"][poll_msg.poll.id] = user.id
+			context.bot_data["poll:chat"][poll_msg.poll.id] = update.effective_chat.id
+
+			await context.chat_data["scoreboard"].edit_text(context.chat_data["cached_message"]+"\nОчки за ход: "+str(context.chat_data["subtotal"]), 
 				parse_mode="html",
-				reply_markup=markup
 			)
 
 	elif button_type == "take&finish" and str(user.id) == owner_id:
@@ -101,9 +113,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 		else:
 			context.chat_data["subtotal"] += subsubtotal
 
-		await query.edit_message_text(context.chat_data["cached_message"]+"\nОчки за ход: "+str(context.chat_data["subtotal"]), 
-			parse_mode="html"
-		)
+		await query.message.delete()
+		await context.chat_data["scoreboard"].edit_text(context.chat_data["cached_message"]+"\nОчки за ход: "+str(context.chat_data["subtotal"]), 
+				parse_mode="html",
+			)
 		context.chat_data["players"][context.chat_data["current_player"]] += context.chat_data["subtotal"]
 		await next_move(update, context)
 
@@ -124,19 +137,30 @@ async def next_move(update, context):
 	context.chat_data["selected_dices"] = set()
 	context.chat_data["subtotal"] = 0
 
-	msg = context.chat_data["cached_message"] = "Ходит "+pl.mention_html()
+	msg_txt = context.chat_data["cached_message"] = "Ходит "+pl.mention_html()
 
 	markup = make_dice_markup(pl.id, context)
-	await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, 
-		reply_markup=markup,
+	msg = await context.bot.send_message(chat_id=update.effective_chat.id, text=msg_txt,
 		parse_mode="html"
 	)
+	context.chat_data["scoreboard"] = msg
+	poll_msg = await context.bot.send_poll(
+		chat_id=update.effective_chat.id,
+        question="Выбери кости",
+        options=[str(i) for i in context.chat_data["current_roll"]] + ["Ничего"],
+        is_anonymous=False,
+        allows_multiple_answers=True,
+        reply_markup=markup
+    )
+	context.bot_data["poll:user"][poll_msg.poll.id] = pl.id
+	context.bot_data["poll:chat"][poll_msg.poll.id] = update.effective_chat.id
+
 
 
 def make_dice_markup(user_id, context):
 	di = context.chat_data["current_roll"]
 	sel = context.chat_data["selected_dices"]
-	keyboard = [[InlineKeyboardButton(f"[{i}]" if n in sel else f"{i}", callback_data=f"dice-{n}:{user_id}") for n, i in enumerate(di)]]
+	keyboard = []
 	keyboard.append([InlineKeyboardButton("Забрать и продолжить", callback_data=f"take&continue:{user_id}")])
 	keyboard.append([InlineKeyboardButton("Забрать и закончить", callback_data=f"take&finish:{user_id}")])
 	return InlineKeyboardMarkup(keyboard)
@@ -156,7 +180,7 @@ def scoring(context):
 	dices_used = 0
 	di = context.chat_data["current_roll"]
 	sel = context.chat_data["selected_dices"]
-	take = [di[n] for n in sel]
+	take = [di[n] for n in sel if n < len(di)]
 	take_table = Counter(take)
 	if len(take_table) == 6:
 		count += 1500
@@ -175,6 +199,17 @@ def scoring(context):
 	return count, dices_used
 
 
+async def poll_answer(update, context):
+    poll_answer = update.poll_answer
+    answered_user = poll_answer.user.id
+    intended_user = context.bot_data["poll:user"][poll_answer.poll_id]
+    if answered_user == intended_user:
+    	option_indexes = poll_answer.option_ids
+    	chat_id = context.bot_data["poll:chat"][poll_answer.poll_id]
+    	context.application.chat_data[chat_id]["selected_dices"] = set(option_indexes)
+
+
+
 async def resend(update, context):
 	msg = context.chat_data['cached_message']
 	if context.chat_data['game_in_process'] and context.chat_data['turn']:
@@ -186,13 +221,20 @@ async def resend(update, context):
 		parse_mode="html"
 	)
 
+# async def init_bot_data(context):
+# 	context.bot_data["poll:user"] = {}
+
 
 application = Application.builder().token(token).build()
+
+application.bot_data["poll:user"] = {}
+application.bot_data["poll:chat"] = {}
 
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("play", play))
 application.add_handler(CommandHandler("resend", resend))
 application.add_handler(CallbackQueryHandler(button_callback))
+application.add_handler(PollAnswerHandler(poll_answer))
 
 
 application.run_polling(allowed_updates=Update.ALL_TYPES)

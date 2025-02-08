@@ -1,6 +1,6 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, PollAnswerHandler
-from random import randrange, shuffle
+from random import randrange, shuffle, choice
 from collections import Counter
 
 token = "REDACTED"
@@ -8,10 +8,11 @@ token = "REDACTED"
 target = 5000
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-	await update.message.reply_text("Привет! Я зонк-бот для групповых чатов.")
+	await update.message.reply_text("Привет! Я зонк-бот для групповых чатов. Напиши /zonk, чтобы начать игру!")
 
 
 async def play(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+	print("play()")
 	if context.chat_data.get("game_in_process", False):
 		await update.message.reply_text("Игра уже идёт")
 		return
@@ -96,10 +97,12 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 			context.chat_data["selected_dices"] = set()
 			await query.message.delete()
 			markup = make_dice_markup(user.id, context)
+			additional_opt = [choice(["Рисковая игра!", "Йо-хо-хо!", "Кто не рискует - тот не пьёт!", "Риск - моё второе имя!", "Шансы 2 к 6!"])] if len(context.chat_data["current_roll"]) == 1 else []
+			options = [str(i) for i in context.chat_data["current_roll"]] + additional_opt
 			poll_msg = await context.bot.send_poll(
 				chat_id=update.effective_chat.id,
 		        question="Выбери кости",
-		        options=[str(i) for i in context.chat_data["current_roll"]] + ["Ничего"],
+		        options=options,
 		        is_anonymous=False,
 		        allows_multiple_answers=True,
 		        reply_markup=markup
@@ -162,7 +165,7 @@ async def next_move(update, context):
 	poll_msg = await context.bot.send_poll(
 		chat_id=update.effective_chat.id,
         question="Выбери кости",
-        options=[str(i) for i in context.chat_data["current_roll"]] + ["Ничего"],
+        options=[str(i) for i in context.chat_data["current_roll"]],
         is_anonymous=False,
         allows_multiple_answers=True,
         reply_markup=markup
@@ -244,7 +247,7 @@ application.bot_data["poll:user"] = {}
 application.bot_data["poll:chat"] = {}
 
 application.add_handler(CommandHandler("start", start))
-application.add_handler(CommandHandler("play", play))
+application.add_handler(CommandHandler("zonk", play))
 application.add_handler(CommandHandler("resend", resend))
 application.add_handler(CallbackQueryHandler(button_callback))
 application.add_handler(PollAnswerHandler(poll_answer))

@@ -1,11 +1,11 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, PollAnswerHandler
-from random import randrange
+from random import randrange, shuffle
 from collections import Counter
 
 token = "REDACTED"
 
-target = 500
+target = 5000
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 	await update.message.reply_text("Привет! Я зонк-бот для групповых чатов.")
@@ -16,7 +16,7 @@ async def play(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 		await update.message.reply_text("Игра уже идёт")
 		return
 	context.chat_data["game_in_process"] = True
-	context.chat_data["players"] = {}
+	context.chat_data["players"] = []
 
 	user = update.effective_user
 
@@ -35,7 +35,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 	button_type, owner_id = query.data.split(":")
 
 	if button_type == "join" and str(user.id) != owner_id and user not in context.chat_data["players"]:
-		context.chat_data["players"][user] = 0
+		context.chat_data["players"].append(user)
 		players_names = [u.mention_html() for u in context.chat_data["players"]]
 		saved_markup = query.message.reply_markup
 		await query.edit_message_text(context.chat_data["cached_message"] + "\nОтозвались:\n" + f"{', '.join(players_names)}", 
@@ -45,7 +45,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 	
 	elif button_type == "begin" and str(user.id) == owner_id:
 		players_names = [u.mention_html() for u in context.chat_data["players"]]
-		context.chat_data["players"][user] = 0
+		context.chat_data["players"].append(user)
+		shuffle(context.chat_data["players"])
+		context.chat_data["players"] = {pl : 0 for pl in context.chat_data["players"]}
 		context.chat_data["player_iterator"] = iter(dict(context.chat_data["players"]))
 		context.chat_data["current_player"] = None
 		context.chat_data["current_roll"] = []
@@ -64,17 +66,17 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 		context.chat_data["game_in_process"] = False
 		await query.edit_message_text("Игра отменена")
 
-	elif button_type.startswith("dice") and str(user.id) == owner_id:
-		dice_num = int(button_type[-1])
-		if dice_num not in context.chat_data["selected_dices"]:
-			context.chat_data["selected_dices"].add(dice_num)
-		else:
-			context.chat_data["selected_dices"].remove(dice_num)
-		markup = make_dice_markup(user.id, context)
-		await query.edit_message_text(context.chat_data["cached_message"]+"\nОчки за ход: "+str(context.chat_data["subtotal"]), 
-			parse_mode="html",
-			reply_markup=markup
-		)
+	# elif button_type.startswith("dice") and str(user.id) == owner_id:
+	# 	dice_num = int(button_type[-1])
+	# 	if dice_num not in context.chat_data["selected_dices"]:
+	# 		context.chat_data["selected_dices"].add(dice_num)
+	# 	else:
+	# 		context.chat_data["selected_dices"].remove(dice_num)
+	# 	markup = make_dice_markup(user.id, context)
+	# 	await query.edit_message_text(context.chat_data["cached_message"]+"\nОчки за ход: "+str(context.chat_data["subtotal"]), 
+	# 		parse_mode="html",
+	# 		reply_markup=markup
+	# 	)
 
 	elif button_type == "take&continue" and str(user.id) == owner_id:
 		subsubtotal, dices_used = scoring(context)
@@ -127,7 +129,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 			del context.chat_data["players"][context.chat_data["current_player"]]
 			await context.bot.send_message(chat_id=update.effective_chat.id, text=f"{context.chat_data['current_player'].mention_html()} набирает {player_points} очков и занимает {len(context.chat_data['leaderboard'])} место!", parse_mode="html")
 			if len(context.chat_data["players"]) <= 1:
-				context.chat_data["leaderboard"] += list(context.chat_data["players"].keys())
+				context.chat_data["leaderboard"] += list(context.chat_data["players"])
 				await context.bot.send_message(chat_id=update.effective_chat.id, text="Игра окончена!\n"+"\n".join(f"{i + 1} место - {u.mention_html()}"for i, u in enumerate(context.chat_data["leaderboard"])), parse_mode="html")
 				context.chat_data["game_in_process"] = False
 				return

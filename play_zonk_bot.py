@@ -5,6 +5,7 @@ from collections import Counter
 
 token = "REDACTED"
 
+target = 500
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 	await update.message.reply_text("Привет! Я зонк-бот для групповых чатов.")
@@ -45,12 +46,14 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 	elif button_type == "begin" and str(user.id) == owner_id:
 		players_names = [u.mention_html() for u in context.chat_data["players"]]
 		context.chat_data["players"][user] = 0
-		context.chat_data["player_iterator"] = iter(context.chat_data["players"])
+		context.chat_data["player_iterator"] = iter(dict(context.chat_data["players"]))
 		context.chat_data["current_player"] = None
 		context.chat_data["current_roll"] = []
 		context.chat_data["selected_dices"] = set()
 		context.chat_data["subtotal"] = 0
 		context.chat_data["turn"] = 1
+		context.chat_data["scoreboard"] = None
+		context.chat_data["leaderboard"] = []
 		await query.edit_message_text(context.chat_data["cached_message"] + "\nОтозвались:\n" + f"{', '.join(players_names)}" + "\nИгра начата!", 
 			parse_mode="html",
 		)
@@ -118,6 +121,16 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 				parse_mode="html",
 			)
 		context.chat_data["players"][context.chat_data["current_player"]] += context.chat_data["subtotal"]
+		player_points = context.chat_data["players"][context.chat_data["current_player"]]
+		if player_points >= target:
+			context.chat_data["leaderboard"].append(context.chat_data["current_player"])
+			del context.chat_data["players"][context.chat_data["current_player"]]
+			await context.bot.send_message(chat_id=update.effective_chat.id, text=f"{context.chat_data['current_player'].mention_html()} набирает {player_points} очков и занимает {len(context.chat_data['leaderboard'])} место!", parse_mode="html")
+			if len(context.chat_data["players"]) == 1:
+				context.chat_data["leaderboard"].append(list(context.chat_data["players"].keys())[0])
+				await context.bot.send_message(chat_id=update.effective_chat.id, text="Игра окончена!\n"+"\n".join(f"{i + 1} место - {u.mention_html()}"for i, u in enumerate(context.chat_data["leaderboard"])), parse_mode="html")
+				context.chat_data["game_in_process"] = False
+				return
 		await next_move(update, context)
 
 	await query.answer()
@@ -129,7 +142,7 @@ async def next_move(update, context):
 	except StopIteration:
 		context.chat_data["turn"] += 1
 		tu = context.chat_data["turn"]
-		context.chat_data["player_iterator"] = iter(context.chat_data["players"])
+		context.chat_data["player_iterator"] = iter(dict(context.chat_data["players"]))
 		pl = context.chat_data["current_player"] = next(context.chat_data["player_iterator"])
 		await context.bot.send_message(chat_id=update.effective_chat.id, text="Круг "+str(tu)+"\nТекущий счёт:\n"+"\n".join([f"{u.full_name} - {p}" for u, p in context.chat_data["players"].items()]))
 
@@ -207,7 +220,7 @@ async def poll_answer(update, context):
     	option_indexes = poll_answer.option_ids
     	chat_id = context.bot_data["poll:chat"][poll_answer.poll_id]
     	context.application.chat_data[chat_id]["selected_dices"] = set(option_indexes)
-
+    	# delete pairs when possible
 
 
 async def resend(update, context):
@@ -221,8 +234,6 @@ async def resend(update, context):
 		parse_mode="html"
 	)
 
-# async def init_bot_data(context):
-# 	context.bot_data["poll:user"] = {}
 
 
 application = Application.builder().token(token).build()

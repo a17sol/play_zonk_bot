@@ -126,8 +126,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 			context.chat_data["leaderboard"].append(context.chat_data["current_player"])
 			del context.chat_data["players"][context.chat_data["current_player"]]
 			await context.bot.send_message(chat_id=update.effective_chat.id, text=f"{context.chat_data['current_player'].mention_html()} набирает {player_points} очков и занимает {len(context.chat_data['leaderboard'])} место!", parse_mode="html")
-			if len(context.chat_data["players"]) == 1:
-				context.chat_data["leaderboard"].append(list(context.chat_data["players"].keys())[0])
+			if len(context.chat_data["players"]) <= 1:
+				context.chat_data["leaderboard"] += list(context.chat_data["players"].keys())
 				await context.bot.send_message(chat_id=update.effective_chat.id, text="Игра окончена!\n"+"\n".join(f"{i + 1} место - {u.mention_html()}"for i, u in enumerate(context.chat_data["leaderboard"])), parse_mode="html")
 				context.chat_data["game_in_process"] = False
 				return

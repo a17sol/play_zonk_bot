@@ -89,7 +89,12 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 			del context.chat_data["players"][context.chat_data["current_player"]]
 			if len(context.chat_data["players"]) <= 1:
 				context.chat_data["leaderboard"] += list(context.chat_data["players"])
-				await context.chat_data["board"].edit_text(make_leaderboard(context), parse_mode="html")
+				await context.chat_data["board"].delete()
+				context.chat_data["board"] = await context.bot.send_message(
+					chat_id=context._chat_id,
+					text=make_leaderboard(context),
+					parse_mode="html"
+				)
 				context.chat_data["game_in_process"] = False
 				return
 		await next_move(update, context)
@@ -112,12 +117,20 @@ async def next_move(update, context):
 
 async def roll(dices_to_roll, context):
 
-	await context.chat_data["board"].edit_text(make_scoreboard(context), parse_mode="html")
+	emo = "\uFE0F\u20E3"
+
+	#await context.chat_data["board"].edit_text(make_scoreboard(context), parse_mode="html")
+	await context.chat_data["board"].delete()
+	context.chat_data["board"] = await context.bot.send_message(
+		chat_id=context._chat_id,
+		text=make_scoreboard(context),
+		parse_mode="html"
+	)
 
 	context.chat_data["current_roll"] = [randrange(1, 7) for _ in range(dices_to_roll)]
 	context.chat_data["selected_dices"] = set()
 	additional_opt = [choice(["Рисковая игра!", "Йо-хо-хо!", "Кто не рискует - тот не пьёт!", "Риск - моё второе имя!", "Шансы 2 к 6!"])] if len(context.chat_data["current_roll"]) == 1 else []
-	options = [str(i) for i in context.chat_data["current_roll"]] + additional_opt
+	options = [str(i)+emo for i in context.chat_data["current_roll"]] + additional_opt
 
 	poll_msg = await context.bot.send_poll(
 		chat_id=context._chat_id,
@@ -164,6 +177,8 @@ def make_scoreboard(context):
 		if u == context.chat_data["current_player"]:
 			string += "+" + str(context.chat_data["subtotal"])
 		string += "\n"
+	for u in context.chat_data["leaderboard"]:
+		string += f"{u.full_name} закончил\n"
 	#string += "\n".join([f"{u.full_name} - {p}" for u, p in context.chat_data["players"].items()]) + "\n"
 	string += "Ходит " + context.chat_data["current_player"].mention_html()
 	return string

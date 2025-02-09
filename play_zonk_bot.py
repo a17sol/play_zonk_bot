@@ -10,109 +10,70 @@ target = 5000
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 	await update.message.reply_text("Привет! Я зонк-бот для групповых чатов. Напиши /zonk, чтобы начать игру!")
 
-
 async def play(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+
 	print("play()")
+
 	if context.chat_data.get("game_in_process", False):
 		await update.message.reply_text("Игра уже идёт")
 		return
-	context.chat_data["game_in_process"] = True
-	context.chat_data["players"] = []
 
 	user = update.effective_user
+	context.chat_data["game_in_process"] = True
+	context.chat_data["players"] = []
+	context.chat_data["initiator"] = user
 
-	reply_markup = make_invite_markup(user, context)
-
-	context.chat_data["cached_message"] = f"{user.mention_html()} хочет сыграть. Кто в деле?"
-	await update.message.reply_text(context.chat_data["cached_message"],
+	context.chat_data["board"] = await context.bot.send_message(
+		chat_id=update.effective_chat.id,
+		text=make_inviteboard(context),
 		parse_mode="html", 
-		reply_markup=reply_markup
+		reply_markup=make_invite_markup(context)
 	)
 
 
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+
 	query = update.callback_query
 	user = query.from_user
 	button_type, owner_id = query.data.split(":")
 
 	if button_type == "join" and str(user.id) != owner_id and user not in context.chat_data["players"]:
 		context.chat_data["players"].append(user)
-		players_names = [u.mention_html() for u in context.chat_data["players"]]
-		saved_markup = query.message.reply_markup
-		await query.edit_message_text(context.chat_data["cached_message"] + "\nОтозвались:\n" + f"{', '.join(players_names)}", 
+		await query.edit_message_text(
+			make_inviteboard(context),
 			parse_mode="html",
-			reply_markup=saved_markup
+			reply_markup=make_invite_markup(context)
 		)
 	
 	elif button_type == "begin" and str(user.id) == owner_id:
-		players_names = [u.mention_html() for u in context.chat_data["players"]]
 		context.chat_data["players"].append(user)
 		shuffle(context.chat_data["players"])
 		context.chat_data["players"] = {pl : 0 for pl in context.chat_data["players"]}
 		context.chat_data["player_iterator"] = iter(dict(context.chat_data["players"]))
 		context.chat_data["current_player"] = None
+		context.chat_data["leaderboard"] = []
 		context.chat_data["current_roll"] = []
 		context.chat_data["selected_dices"] = set()
 		context.chat_data["subtotal"] = 0
 		context.chat_data["turn"] = 1
-		context.chat_data["scoreboard"] = None
-		context.chat_data["leaderboard"] = []
-		await query.edit_message_text(context.chat_data["cached_message"] + "\nОтозвались:\n" + f"{', '.join(players_names)}" + "\nИгра начата!", 
-			parse_mode="html",
-		)
-		await context.bot.send_message(chat_id=update.effective_chat.id, text="Круг "+str(context.chat_data["turn"]))
 		await next_move(update, context)
 
 	elif button_type == "cancel" and str(user.id) == owner_id:
 		context.chat_data["game_in_process"] = False
 		await query.edit_message_text("Игра отменена")
 
-	# elif button_type.startswith("dice") and str(user.id) == owner_id:
-	# 	dice_num = int(button_type[-1])
-	# 	if dice_num not in context.chat_data["selected_dices"]:
-	# 		context.chat_data["selected_dices"].add(dice_num)
-	# 	else:
-	# 		context.chat_data["selected_dices"].remove(dice_num)
-	# 	markup = make_dice_markup(user.id, context)
-	# 	await query.edit_message_text(context.chat_data["cached_message"]+"\nОчки за ход: "+str(context.chat_data["subtotal"]), 
-	# 		parse_mode="html",
-	# 		reply_markup=markup
-	# 	)
-
 	elif button_type == "take&continue" and str(user.id) == owner_id:
 		subsubtotal, dices_used = scoring(context)
 		if subsubtotal == 0:
 			context.chat_data["subtotal"] = 0
-			await query.message.delete()
-			await context.chat_data["scoreboard"].edit_text(context.chat_data["cached_message"]+"\nОчки за ход: 0", 
-				parse_mode="html"
-			)
 			await next_move(update, context)
 		else:
 			context.chat_data["subtotal"] += subsubtotal
-			dice_amount = len(context.chat_data["current_roll"]) - dices_used
-			if dice_amount == 0:
-				dice_amount = 6
-			context.chat_data["current_roll"] = [randrange(1, 7) for _ in range(dice_amount)]
-			context.chat_data["selected_dices"] = set()
-			await query.message.delete()
-			markup = make_dice_markup(user.id, context)
-			additional_opt = [choice(["Рисковая игра!", "Йо-хо-хо!", "Кто не рискует - тот не пьёт!", "Риск - моё второе имя!", "Шансы 2 к 6!"])] if len(context.chat_data["current_roll"]) == 1 else []
-			options = [str(i) for i in context.chat_data["current_roll"]] + additional_opt
-			poll_msg = await context.bot.send_poll(
-				chat_id=update.effective_chat.id,
-		        question="Выбери кости",
-		        options=options,
-		        is_anonymous=False,
-		        allows_multiple_answers=True,
-		        reply_markup=markup
-		    )
-			context.bot_data["poll:user"][poll_msg.poll.id] = user.id
-			context.bot_data["poll:chat"][poll_msg.poll.id] = update.effective_chat.id
-
-			await context.chat_data["scoreboard"].edit_text(context.chat_data["cached_message"]+"\nОчки за ход: "+str(context.chat_data["subtotal"]), 
-				parse_mode="html",
-			)
+			dices_to_roll = len(context.chat_data["current_roll"]) - dices_used
+			if dices_to_roll == 0:
+				dices_to_roll = 6
+			await roll(dices_to_roll, context)
+		await query.message.delete()
 
 	elif button_type == "take&finish" and str(user.id) == owner_id:
 		subsubtotal, _ = scoring(context)
@@ -120,20 +81,15 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 			context.chat_data["subtotal"] = 0
 		else:
 			context.chat_data["subtotal"] += subsubtotal
-
-		await query.message.delete()
-		await context.chat_data["scoreboard"].edit_text(context.chat_data["cached_message"]+"\nОчки за ход: "+str(context.chat_data["subtotal"]), 
-				parse_mode="html",
-			)
 		context.chat_data["players"][context.chat_data["current_player"]] += context.chat_data["subtotal"]
 		player_points = context.chat_data["players"][context.chat_data["current_player"]]
+		await query.message.delete()
 		if player_points >= target:
 			context.chat_data["leaderboard"].append(context.chat_data["current_player"])
 			del context.chat_data["players"][context.chat_data["current_player"]]
-			await context.bot.send_message(chat_id=update.effective_chat.id, text=f"{context.chat_data['current_player'].mention_html()} набирает {player_points} очков и занимает {len(context.chat_data['leaderboard'])} место!", parse_mode="html")
 			if len(context.chat_data["players"]) <= 1:
 				context.chat_data["leaderboard"] += list(context.chat_data["players"])
-				await context.bot.send_message(chat_id=update.effective_chat.id, text="Игра окончена!\n"+"\n".join(f"{i + 1} место - {u.mention_html()}"for i, u in enumerate(context.chat_data["leaderboard"])), parse_mode="html")
+				await context.chat_data["board"].edit_text(make_leaderboard(context), parse_mode="html")
 				context.chat_data["game_in_process"] = False
 				return
 		await next_move(update, context)
@@ -149,30 +105,31 @@ async def next_move(update, context):
 		tu = context.chat_data["turn"]
 		context.chat_data["player_iterator"] = iter(dict(context.chat_data["players"]))
 		pl = context.chat_data["current_player"] = next(context.chat_data["player_iterator"])
-		await context.bot.send_message(chat_id=update.effective_chat.id, text="Круг "+str(tu)+"\nТекущий счёт:\n"+"\n".join([f"{u.full_name} - {p}" for u, p in context.chat_data["players"].items()]))
 
-	context.chat_data["current_roll"] = [randrange(1, 7) for _ in range(6)]
-	context.chat_data["selected_dices"] = set()
 	context.chat_data["subtotal"] = 0
+	await roll(6, context)
 
-	msg_txt = context.chat_data["cached_message"] = "Ходит "+pl.mention_html()
 
-	markup = make_dice_markup(pl.id, context)
-	msg = await context.bot.send_message(chat_id=update.effective_chat.id, text=msg_txt,
-		parse_mode="html"
-	)
-	context.chat_data["scoreboard"] = msg
+async def roll(dices_to_roll, context):
+
+	await context.chat_data["board"].edit_text(make_scoreboard(context), parse_mode="html")
+
+	context.chat_data["current_roll"] = [randrange(1, 7) for _ in range(dices_to_roll)]
+	context.chat_data["selected_dices"] = set()
+	additional_opt = [choice(["Рисковая игра!", "Йо-хо-хо!", "Кто не рискует - тот не пьёт!", "Риск - моё второе имя!", "Шансы 2 к 6!"])] if len(context.chat_data["current_roll"]) == 1 else []
+	options = [str(i) for i in context.chat_data["current_roll"]] + additional_opt
+
 	poll_msg = await context.bot.send_poll(
-		chat_id=update.effective_chat.id,
-        question="Выбери кости",
-        options=[str(i) for i in context.chat_data["current_roll"]],
-        is_anonymous=False,
-        allows_multiple_answers=True,
-        reply_markup=markup
-    )
-	context.bot_data["poll:user"][poll_msg.poll.id] = pl.id
-	context.bot_data["poll:chat"][poll_msg.poll.id] = update.effective_chat.id
+		chat_id=context._chat_id,
+		question="Выбери кости",
+		options=options,
+		is_anonymous=False,
+		allows_multiple_answers=True,
+		reply_markup=make_dice_markup(context.chat_data["current_player"].id, context)
+	)
 
+	context.bot_data["poll:user"][poll_msg.poll.id] = context.chat_data["current_player"].id
+	context.bot_data["poll:chat"][poll_msg.poll.id] = context._chat_id
 
 
 def make_dice_markup(user_id, context):
@@ -183,13 +140,40 @@ def make_dice_markup(user_id, context):
 	keyboard.append([InlineKeyboardButton("Забрать и закончить", callback_data=f"take&finish:{user_id}")])
 	return InlineKeyboardMarkup(keyboard)
 
-def make_invite_markup(user, context):
+def make_invite_markup(context):
+	user = context.chat_data["initiator"]
 	keyboard = [
 		[InlineKeyboardButton("Я хочу!", callback_data=f"join:{user.id}")],
 		[InlineKeyboardButton(f"{user.first_name}, нажми, чтобы начать", callback_data=f"begin:{user.id}")],
 		[InlineKeyboardButton(f"{user.first_name}, нажми, чтобы отменить", callback_data=f"cancel:{user.id}")],
 	]
 	return InlineKeyboardMarkup(keyboard)
+
+def make_inviteboard(context):
+	string = context.chat_data['initiator'].mention_html() + " хочет сыграть. Кто в деле?\n"
+	if context.chat_data['players']:
+		players_names = [u.mention_html() for u in context.chat_data["players"]]
+		string += "Отозвались:\n" + "\n".join(players_names)
+	return string
+
+def make_scoreboard(context):
+	string = "Круг " + str(context.chat_data["turn"]) + "\n"
+	string += "Текущий счёт:\n"
+	for u, p in context.chat_data["players"].items():
+		string += f"{u.full_name} - {p}"
+		if u == context.chat_data["current_player"]:
+			string += "+" + str(context.chat_data["subtotal"])
+		string += "\n"
+	#string += "\n".join([f"{u.full_name} - {p}" for u, p in context.chat_data["players"].items()]) + "\n"
+	string += "Ходит " + context.chat_data["current_player"].mention_html()
+	return string
+
+def make_leaderboard(context):
+	string = "Игра окончена!\n"
+	for i, u in enumerate(context.chat_data["leaderboard"]):
+		string += f"{i + 1} место - {u.mention_html()}" + "\n"
+	return string
+
 
 def scoring(context):
 	values = [0, 100, 20, 30, 40, 50, 60]
@@ -218,26 +202,26 @@ def scoring(context):
 
 
 async def poll_answer(update, context):
-    poll_answer = update.poll_answer
-    answered_user = poll_answer.user.id
-    intended_user = context.bot_data["poll:user"][poll_answer.poll_id]
-    if answered_user == intended_user:
-    	option_indexes = poll_answer.option_ids
-    	chat_id = context.bot_data["poll:chat"][poll_answer.poll_id]
-    	context.application.chat_data[chat_id]["selected_dices"] = set(option_indexes)
-    	# delete pairs when possible
+	poll_answer = update.poll_answer
+	answered_user = poll_answer.user.id
+	intended_user = context.bot_data["poll:user"][poll_answer.poll_id]
+	if answered_user == intended_user:
+		option_indexes = poll_answer.option_ids
+		chat_id = context.bot_data["poll:chat"][poll_answer.poll_id]
+		context.application.chat_data[chat_id]["selected_dices"] = set(option_indexes)
+		# delete pairs when possible
 
 
-async def resend(update, context):
-	msg = context.chat_data['cached_message']
-	if context.chat_data['game_in_process'] and context.chat_data['turn']:
-		markup = make_dice_markup(context.chat_data['current_player'].id, context)
-	else:
-		markup = make_invite_markup(context.chat_data['current_player'], context)
-	await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, 
-		reply_markup=markup,
-		parse_mode="html"
-	)
+# async def resend(update, context):
+# 	msg = context.chat_data['cached_message']
+# 	if context.chat_data['game_in_process'] and context.chat_data['turn']:
+# 		markup = make_dice_markup(context.chat_data['current_player'].id, context)
+# 	else:
+# 		markup = make_invite_markup(context.chat_data['current_player'], context)
+# 	await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, 
+# 		reply_markup=markup,
+# 		parse_mode="html"
+# 	)
 
 
 
@@ -248,7 +232,7 @@ application.bot_data["poll:chat"] = {}
 
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("zonk", play))
-application.add_handler(CommandHandler("resend", resend))
+# application.add_handler(CommandHandler("resend", resend))
 application.add_handler(CallbackQueryHandler(button_callback))
 application.add_handler(PollAnswerHandler(poll_answer))
 

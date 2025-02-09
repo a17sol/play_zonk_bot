@@ -8,7 +8,7 @@ token = "REDACTED"
 target = 5000
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-	await update.message.reply_text("Привет! Я зонк-бот для групповых чатов. Напиши /zonk, чтобы начать игру!")
+	await update.message.reply_text("Привет! Я зонк-бот для групповых чатов. Добавляй меня в группы и пиши /zonk, чтобы начать игру с друзьями!")
 
 async def play(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 

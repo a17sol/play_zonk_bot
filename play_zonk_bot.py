@@ -209,7 +209,8 @@ async def poll_answer(update, context):
 		option_indexes = poll_answer.option_ids
 		chat_id = context.bot_data["poll:chat"][poll_answer.poll_id]
 		context.application.chat_data[chat_id]["selected_dices"] = set(option_indexes)
-		# delete pairs when possible
+		del context.bot_data["poll:user"][poll_answer.poll_id]
+		del context.bot_data["poll:chat"][poll_answer.poll_id]
 
 
 # async def resend(update, context):

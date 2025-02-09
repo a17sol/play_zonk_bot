@@ -87,23 +87,22 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 			context.chat_data["subtotal"] += subsubtotal
 		context.chat_data["players"][context.chat_data["current_player"]] += context.chat_data["subtotal"]
 		player_points = context.chat_data["players"][context.chat_data["current_player"]]
-		await query.message.delete()
 		if player_points >= target:
 			context.chat_data["leaderboard"].append(context.chat_data["current_player"])
 			del context.chat_data["players"][context.chat_data["current_player"]]
 			if len(context.chat_data["players"]) <= 1:
 				context.chat_data["leaderboard"] += list(context.chat_data["players"])
-				tmp = await context.bot.send_message(
+				await context.chat_data["board"].delete()
+				context.chat_data["board"] = await context.bot.send_message(
 					chat_id=context._chat_id,
 					text=make_leaderboard(context),
 					parse_mode="html",
 					disable_notification=True
 				)
-				await context.chat_data["board"].delete()
-				context.chat_data["board"] = tmp
 				context.chat_data["game_in_process"] = False
 				return
 		await next_move(update, context)
+		await query.message.delete()
 
 	await query.answer()
 
@@ -132,8 +131,6 @@ async def roll(dices_to_roll, context):
 		parse_mode="html",
 		disable_notification=True
 	)
-	await context.chat_data["board"].delete()
-	context.chat_data["board"] = tmp
 
 	context.chat_data["current_roll"] = [randrange(1, 7) for _ in range(dices_to_roll)]
 	context.chat_data["selected_dices"] = set()
@@ -152,8 +149,8 @@ async def roll(dices_to_roll, context):
 	)
 
 	context.bot_data["poll:msg"][poll_msg.poll.id] = poll_msg
-	# TODO: remove redundant data storage (msg contains all necessary info, I believe;
-	# or use poll:chat to get correct chat context)
+	await context.chat_data["board"].delete()
+	context.chat_data["board"] = tmp
 
 
 def make_take_markup(user_id):

@@ -63,8 +63,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 		await query.edit_message_text("Игра отменена")
 
 	elif button_type == "notake" and str(user.id) == owner_id:
-		await query.message.delete()
 		await next_move(update, context)
+		await query.message.delete()
 
 	elif button_type == "take&continue" and str(user.id) == owner_id:
 		subsubtotal, dices_used = scoring(context)
@@ -93,13 +93,14 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 			del context.chat_data["players"][context.chat_data["current_player"]]
 			if len(context.chat_data["players"]) <= 1:
 				context.chat_data["leaderboard"] += list(context.chat_data["players"])
-				await context.chat_data["board"].delete()
-				context.chat_data["board"] = await context.bot.send_message(
+				tmp = await context.bot.send_message(
 					chat_id=context._chat_id,
 					text=make_leaderboard(context),
 					parse_mode="html",
 					disable_notification=True
 				)
+				await context.chat_data["board"].delete()
+				context.chat_data["board"] = tmp
 				context.chat_data["game_in_process"] = False
 				return
 		await next_move(update, context)
@@ -125,13 +126,14 @@ async def roll(dices_to_roll, context):
 	emo = "\uFE0F\u20E3"
 
 	#await context.chat_data["board"].edit_text(make_scoreboard(context), parse_mode="html")
-	await context.chat_data["board"].delete()
-	context.chat_data["board"] = await context.bot.send_message(
+	tmp = await context.bot.send_message(
 		chat_id=context._chat_id,
 		text=make_scoreboard(context),
 		parse_mode="html",
 		disable_notification=True
 	)
+	await context.chat_data["board"].delete()
+	context.chat_data["board"] = tmp
 
 	context.chat_data["current_roll"] = [randrange(1, 7) for _ in range(dices_to_roll)]
 	context.chat_data["selected_dices"] = set()
@@ -149,17 +151,12 @@ async def roll(dices_to_roll, context):
 		disable_notification=True
 	)
 
-	context.bot_data["poll:user"][poll_msg.poll.id] = context.chat_data["current_player"].id
-	context.bot_data["poll:chat"][poll_msg.poll.id] = context._chat_id
 	context.bot_data["poll:msg"][poll_msg.poll.id] = poll_msg
-	context.bot_data["poll:context"][poll_msg.poll.id] = context
 	# TODO: remove redundant data storage (msg contains all necessary info, I believe;
 	# or use poll:chat to get correct chat context)
 
 
-def make_take_markup(user_id, context):
-	di = context.chat_data["current_roll"]
-	sel = context.chat_data["selected_dices"]
+def make_take_markup(user_id):
 	keyboard = []
 	keyboard.append([InlineKeyboardButton("Забрать и продолжить", callback_data=f"take&continue:{user_id}")])
 	keyboard.append([InlineKeyboardButton("Забрать и закончить", callback_data=f"take&finish:{user_id}")])
@@ -230,17 +227,14 @@ def scoring(context):
 
 async def poll_answer(update, context):
 	poll_answer = update.poll_answer
+	chat_id = context.bot_data["poll:msg"][poll_answer.poll_id].chat.id
 	answered_user = poll_answer.user.id
-	intended_user = context.bot_data["poll:user"][poll_answer.poll_id]
+	intended_user = context.application.chat_data[chat_id]["current_player"].id
 	if answered_user == intended_user:
-		await context.bot_data["poll:msg"][poll_answer.poll_id].edit_reply_markup(make_take_markup(answered_user, context.bot_data["poll:context"][poll_answer.poll_id]))
+		await context.bot_data["poll:msg"][poll_answer.poll_id].edit_reply_markup(make_take_markup(answered_user))
 		option_indexes = poll_answer.option_ids
-		chat_id = context.bot_data["poll:chat"][poll_answer.poll_id]
 		context.application.chat_data[chat_id]["selected_dices"] = set(option_indexes)
-		del context.bot_data["poll:user"][poll_answer.poll_id]
-		del context.bot_data["poll:chat"][poll_answer.poll_id]
 		del context.bot_data["poll:msg"][poll_answer.poll_id]
-		del context.bot_data["poll:context"][poll_answer.poll_id]
 
 
 # async def resend(update, context):
@@ -258,10 +252,7 @@ async def poll_answer(update, context):
 
 application = Application.builder().token(token).build()
 
-application.bot_data["poll:user"] = {}
-application.bot_data["poll:chat"] = {}
 application.bot_data["poll:msg"] = {}
-application.bot_data["poll:context"] = {}
 
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("zonk", play))

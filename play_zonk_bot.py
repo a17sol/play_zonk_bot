@@ -100,6 +100,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 					disable_notification=True
 				)
 				context.chat_data["game_in_process"] = False
+				await query.message.delete()
 				return
 		await next_move(update, context)
 		await query.message.delete()

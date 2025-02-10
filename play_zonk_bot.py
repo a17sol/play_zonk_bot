@@ -23,6 +23,8 @@ async def play(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 	context.chat_data["players"] = []
 	context.chat_data["initiator"] = user
 
+	context.chat_data["scoring_func"] = scoring_b if "b" in context.args else scoring
+
 	context.chat_data["board"] = await context.bot.send_message(
 		chat_id=update.effective_chat.id,
 		text=make_inviteboard(context),
@@ -67,7 +69,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 		await query.message.delete()
 
 	elif button_type == "take&continue" and str(user.id) == owner_id:
-		subsubtotal, dices_used = scoring(context)
+		subsubtotal, dices_used = context.chat_data["scoring_func"](context)
 		if subsubtotal == 0:
 			context.chat_data["subtotal"] = 0
 			await next_move(update, context)
@@ -80,7 +82,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 		await query.message.delete()
 
 	elif button_type == "take&finish" and str(user.id) == owner_id:
-		subsubtotal, _ = scoring(context)
+		subsubtotal, _ = context.chat_data["scoring_func"](context)
 		if subsubtotal == 0:
 			context.chat_data["subtotal"] = 0
 		else:
@@ -220,6 +222,33 @@ def scoring(context):
 			elif points in (1, 5):
 				count += values[points] * times
 				dices_used += times
+	return count, dices_used
+
+
+def scoring_b(context):
+	values = [0, 100, 20, 30, 40, 50, 60]
+	mult = [0, 0, 0, 10, 20, 40, 80]
+	combos = {"123456": 1500, "23456": 750, "12345": 500}
+	count = 0
+	dices_used = 0
+	di = context.chat_data["current_roll"]
+	sel = context.chat_data["selected_dices"]
+	take = [di[n] for n in sel if n < len(di)]
+	take_table = Counter(take)
+	for combo in combos:
+		if all(int(item) in take for item in combo):
+			count += combos[combo]
+			dices_used += len(combo)
+			for i in combo:
+				take_table[int(i)] -= 1
+			break
+	for points, times in take_table.items():
+		if mult[times]:
+			count += values[points] * mult[times]
+			dices_used += times
+		elif points in (1, 5):
+			count += values[points] * times
+			dices_used += times
 	return count, dices_used
 
 

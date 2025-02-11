@@ -27,7 +27,7 @@ async def play(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 	context.chat_data["board"] = await context.bot.send_message(
 		chat_id=update.effective_chat.id,
-		text=make_inviteboard(context),
+		text=make_inviteboard(context, butovo=("b" in context.args)),
 		parse_mode="html", 
 		reply_markup=make_invite_markup(context)
 	)
@@ -172,8 +172,10 @@ def make_invite_markup(context):
 	]
 	return InlineKeyboardMarkup(keyboard)
 
-def make_inviteboard(context):
-	string = context.chat_data['initiator'].mention_html() + " хочет сыграть. Кто в деле?\n"
+def make_inviteboard(context, butovo):
+	string = context.chat_data['initiator'].mention_html() + " хочет сыграть в "
+	string += "бутовский зонк" if butovo else "классический зонк"
+	string += ". Кто в деле?\n"
 	if context.chat_data['players']:
 		players_names = [u.mention_html() for u in context.chat_data["players"]]
 		string += "Отозвались:\n" + "\n".join(players_names)

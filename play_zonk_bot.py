@@ -126,6 +126,7 @@ async def next_move(update, context):
 async def roll(dices_to_roll, context):
 
 	emo = "\uFE0F\u20E3"
+	jokes = ["Рисковая игра!", "Йо-хо-хо!", "Кто не рискует - тот не пьёт!", "Риск - моё второе имя!", "Шансы 2 к 6!"]
 
 	#await context.chat_data["board"].edit_text(make_scoreboard(context), parse_mode="html")
 	tmp = await context.bot.send_message(
@@ -137,9 +138,9 @@ async def roll(dices_to_roll, context):
 
 	context.chat_data["current_roll"] = [randrange(1, 7) for _ in range(dices_to_roll)]
 	context.chat_data["selected_dices"] = set()
-	additional_opt = [choice(["Рисковая игра!", "Йо-хо-хо!", "Кто не рискует - тот не пьёт!", "Риск - моё второе имя!", "Шансы 2 к 6!"])] if len(context.chat_data["current_roll"]) == 1 else []
+	additional_opt = [choice(jokes)] if len(context.chat_data["current_roll"]) == 1 else []
 	options = [str(i)+emo for i in context.chat_data["current_roll"]] + additional_opt
-
+	keyboard = [[InlineKeyboardButton("Не забирать", callback_data=f"notake:{context.chat_data['current_player'].id}")]]
 	poll_msg = await context.bot.send_poll(
 		chat_id=context._chat_id,
 		question="Выбери кости",
@@ -147,7 +148,7 @@ async def roll(dices_to_roll, context):
 		is_anonymous=False,
 		allows_multiple_answers=True,
 		# reply_markup=make_take_markup(context.chat_data["current_player"].id, context)
-		reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Не забирать", callback_data=f"notake:{context.chat_data['current_player'].id}")]]),
+		reply_markup=InlineKeyboardMarkup(keyboard),
 		disable_notification=True
 	)
 
@@ -254,13 +255,14 @@ def scoring_b(context):
 
 async def poll_answer(update, context):
 	poll_answer = update.poll_answer
-	chat_id = context.bot_data["poll:msg"][poll_answer.poll_id].chat.id
+	poll_msg = context.bot_data["poll:msg"][poll_answer.poll_id]
+	chat_data = context.application.chat_data[poll_msg.chat.id]
 	answered_user = poll_answer.user.id
-	intended_user = context.application.chat_data[chat_id]["current_player"].id
+	intended_user = chat_data["current_player"].id
 	if answered_user == intended_user:
-		await context.bot_data["poll:msg"][poll_answer.poll_id].edit_reply_markup(make_take_markup(answered_user))
+		await poll_msg.edit_reply_markup(make_take_markup(answered_user))
 		option_indexes = poll_answer.option_ids
-		context.application.chat_data[chat_id]["selected_dices"] = set(option_indexes)
+		chat_data["selected_dices"] = set(option_indexes)
 		del context.bot_data["poll:msg"][poll_answer.poll_id]
 
 

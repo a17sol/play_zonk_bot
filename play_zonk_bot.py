@@ -42,7 +42,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 	if button_type == "join" and str(user.id) != owner_id and user not in context.chat_data["players"]:
 		context.chat_data["players"].append(user)
 		await query.edit_message_text(
-			make_inviteboard(context),
+			make_inviteboard(context, "бутовский" in query.message.text),
 			parse_mode="html",
 			reply_markup=make_invite_markup(context)
 		)

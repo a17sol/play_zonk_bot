@@ -327,8 +327,6 @@ async def leave(update, context):
 	
 	else:
 		current_player = context.chat_data["current_player"]
-		current_number = tuple(context.chat_data["players"]).index(current_player)
-		leaver_number = tuple(context.chat_data["players"]).index(user)
 		del context.chat_data["players"][user]
 		await update.message.reply_text("Ты покинул(а) игру")
 
@@ -338,10 +336,9 @@ async def leave(update, context):
 
 		else:
 			await context.chat_data["board"].edit_text(make_scoreboard(context), parse_mode="html")
-			if leaver_number > current_number:
-				context.chat_data["player_iterator"] = iter(dict(context.chat_data["players"]))
-				while next(context.chat_data["player_iterator"]) != context.chat_data["current_player"]:
-					pass
+			context.chat_data["player_iterator"] = iter(dict(context.chat_data["players"]))
+			while next(context.chat_data["player_iterator"]) != context.chat_data["current_player"]:
+				pass
 
 
 async def delete_poll(chat_id, context):

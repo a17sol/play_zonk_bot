@@ -27,8 +27,12 @@ target = 5000
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 	await update.message.reply_text("Привет! Я зонк-бот для групповых чатов. Добавляй меня в группы и пиши /zonk, чтобы начать игру с друзьями!", disable_notification=True)
 
-async def play_b(update, context):
-	context.args = ["b"]
+async def zonk_b(update, context):
+	context.chat_data["game_type"] = "butovo"
+	await play(update, context)
+
+async def zonk(update, context):
+	context.chat_data["game_type"] = "classic"
 	await play(update, context)
 
 async def play(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -44,11 +48,11 @@ async def play(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 	context.chat_data["players"] = []
 	context.chat_data["initiator"] = user
 
-	context.chat_data["scoring_func"] = scoring_b if "b" in context.args else scoring
+	context.chat_data["scoring_func"] = scoring_b if context.chat_data["game_type"] == 'butovo' else scoring
 
 	context.chat_data["board"] = await context.bot.send_message(
 		chat_id=update.effective_chat.id,
-		text=make_inviteboard(context, butovo=("b" in context.args)),
+		text=make_inviteboard(context),
 		parse_mode="html", 
 		reply_markup=make_invite_markup(context)
 	)
@@ -200,9 +204,9 @@ def make_invite_markup(context):
 	]
 	return InlineKeyboardMarkup(keyboard)
 
-def make_inviteboard(context, butovo):
+def make_inviteboard(context):
 	string = context.chat_data['initiator'].mention_html() + " хочет сыграть в "
-	string += "бутовский зонк" if butovo else "классический зонк"
+	string += "бутовский зонк" if context.chat_data['game_type'] == 'butovo' else "классический зонк"
 	string += ". Кто в деле?\n"
 	if context.chat_data['players']:
 		players_names = [u.mention_html() for u in context.chat_data["players"]]
@@ -210,7 +214,8 @@ def make_inviteboard(context, butovo):
 	return string
 
 def make_scoreboard(context):
-	string = "Круг " + str(context.chat_data["turn"]) + "\n"
+	string = "Бутовский" if context.chat_data['game_type'] == 'butovo' else "Классический"
+	string += " зонк\nКруг " + str(context.chat_data["turn"]) + "\n"
 	string += "Текущий счёт:\n"
 	for u, p in context.chat_data["players"].items():
 		string += f"{u.full_name} - {p}"
@@ -321,8 +326,8 @@ application = Application.builder().token(token).build()
 application.bot_data["poll:msg"] = {}
 
 application.add_handler(CommandHandler("start", start))
-application.add_handler(CommandHandler("zonk", play))
-application.add_handler(CommandHandler("zonk_b", play_b))
+application.add_handler(CommandHandler("zonk", zonk))
+application.add_handler(CommandHandler("zonk_b", zonk_b))
 # application.add_handler(CommandHandler("resend", resend))
 application.add_handler(CallbackQueryHandler(button_callback))
 application.add_handler(PollAnswerHandler(poll_answer))

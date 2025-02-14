@@ -1,6 +1,5 @@
 # TODO: persist
 # TODO: game stop (time, request)
-# TODO: not your button/poll
 
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -14,7 +13,7 @@ logging.basicConfig(
 	level=logging.INFO,
 	format='%(asctime)s - %(levelname)s - %(message)s',
 	handlers=[
-		logging.FileHandler("play_zonk_bot.log"),
+		logging.FileHandler("zonk.log"),
 		logging.StreamHandler()
 	]
 )
@@ -61,15 +60,22 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 	user = query.from_user
 	button_type, owner_id = query.data.split(":")
 
-	if button_type == "join" and str(user.id) != owner_id and user not in context.chat_data["players"]:
+	if button_type == "join":
+		if str(user.id) == owner_id or user in context.chat_data["players"]:
+			await query.answer("Ты уже в списке участников")
+			return
 		context.chat_data["players"].append(user)
 		await query.edit_message_text(
 			make_inviteboard(context, "бутовский" in query.message.text),
 			parse_mode="html",
 			reply_markup=make_invite_markup(context)
 		)
-	
-	elif button_type == "begin" and str(user.id) == owner_id:
+
+	elif str(user.id) != owner_id:
+		await query.answer("Это не твоя кнопка")
+		return
+
+	elif button_type == "begin":
 		context.chat_data["players"].append(user)
 		shuffle(context.chat_data["players"])
 		context.chat_data["players"] = {pl : 0 for pl in context.chat_data["players"]}
@@ -82,15 +88,15 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 		context.chat_data["turn"] = 1
 		await next_move(update, context)
 
-	elif button_type == "cancel" and str(user.id) == owner_id:
+	elif button_type == "cancel":
 		context.chat_data["game_in_process"] = False
 		await query.edit_message_text("Игра отменена")
 
-	elif button_type == "notake" and str(user.id) == owner_id:
+	elif button_type == "notake":
 		await next_move(update, context)
 		await query.message.delete()
 
-	elif button_type == "take&continue" and str(user.id) == owner_id:
+	elif button_type == "take&continue":
 		subsubtotal, dices_used = context.chat_data["scoring_func"](context)
 		if subsubtotal == 0:
 			context.chat_data["subtotal"] = 0
@@ -103,7 +109,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 			await roll(dices_to_roll, context)
 		await query.message.delete()
 
-	elif button_type == "take&finish" and str(user.id) == owner_id:
+	elif button_type == "take&finish":
 		subsubtotal, _ = context.chat_data["scoring_func"](context)
 		if subsubtotal == 0:
 			context.chat_data["subtotal"] = 0
@@ -212,7 +218,7 @@ def make_scoreboard(context):
 			string += "+" + str(context.chat_data["subtotal"])
 		string += "\n"
 	for u in context.chat_data["leaderboard"]:
-		string += f"{u.full_name} закончил\n"
+		string += f"{u.full_name} закончил(а)\n"
 	#string += "\n".join([f"{u.full_name} - {p}" for u, p in context.chat_data["players"].items()]) + "\n"
 	string += "Ходит " + context.chat_data["current_player"].mention_html()
 	return string

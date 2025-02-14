@@ -1,7 +1,25 @@
+# TODO: persist
+# TODO: game stop (time, request)
+# TODO: not your button/poll
+
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, PollAnswerHandler
+from telegram.error import TelegramError, NetworkError
 from random import randrange, shuffle, choice
 from collections import Counter
+import logging
+
+logging.basicConfig(
+	level=logging.INFO,
+	format='%(asctime)s - %(levelname)s - %(message)s',
+	handlers=[
+		logging.FileHandler("play_zonk_bot.log"),
+		logging.StreamHandler()
+	]
+)
+logging.getLogger('httpx').setLevel(logging.WARNING)
+logging.getLogger('httpcore').setLevel(logging.WARNING)
 
 token = "REDACTED"
 
@@ -279,6 +297,13 @@ async def poll_answer(update, context):
 # 		parse_mode="html"
 # 	)
 
+async def err_handler(update, context):
+	try:
+		raise context.error
+	except (TelegramError, NetworkError, TimeoutError, ConnectionError) as e:
+		logging.error(f"{type(e).__name__}: {e}")
+	except Exception as e:
+		logging.error(str(type(e).__name__), exc_info=True)
 
 
 application = Application.builder().token(token).build()
@@ -290,6 +315,7 @@ application.add_handler(CommandHandler("zonk", play))
 # application.add_handler(CommandHandler("resend", resend))
 application.add_handler(CallbackQueryHandler(button_callback))
 application.add_handler(PollAnswerHandler(poll_answer))
+application.add_error_handler(err_handler)
 
 
 application.run_polling(allowed_updates=Update.ALL_TYPES)

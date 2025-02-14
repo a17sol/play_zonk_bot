@@ -28,9 +28,13 @@ target = 5000
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 	await update.message.reply_text("Привет! Я зонк-бот для групповых чатов. Добавляй меня в группы и пиши /zonk, чтобы начать игру с друзьями!", disable_notification=True)
 
+async def play_b(update, context):
+	context.args = ["b"]
+	await play(update, context)
+
 async def play(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
-	print("play()")
+	logging.info("Game started in chat %d \"%s\"", update.message.chat.id, update.message.chat.title)
 
 	if context.chat_data.get("game_in_process", False):
 		await update.message.reply_text("Игра уже идёт", disable_notification=True)
@@ -312,6 +316,7 @@ application.bot_data["poll:msg"] = {}
 
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("zonk", play))
+application.add_handler(CommandHandler("zonk_b", play_b))
 # application.add_handler(CommandHandler("resend", resend))
 application.add_handler(CallbackQueryHandler(button_callback))
 application.add_handler(PollAnswerHandler(poll_answer))

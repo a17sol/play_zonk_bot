@@ -318,7 +318,7 @@ application.add_handler(PollAnswerHandler(poll_answer))
 application.add_error_handler(err_handler)
 
 
-application.run_polling(allowed_updates=Update.ALL_TYPES)
+application.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 
 

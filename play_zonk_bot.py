@@ -45,6 +45,7 @@ async def play(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 	user = update.effective_user
 	context.chat_data["game_in_process"] = True
+	context.chat_data["turn"] = 0
 	context.chat_data["players"] = []
 	context.chat_data["initiator"] = user
 
@@ -70,7 +71,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 			return
 		context.chat_data["players"].append(user)
 		await query.edit_message_text(
-			make_inviteboard(context, "бутовский" in query.message.text),
+			make_inviteboard(context),
 			parse_mode="html",
 			reply_markup=make_invite_markup(context)
 		)
@@ -301,6 +302,55 @@ async def poll_answer(update, context):
 		del context.bot_data["poll:msg"][poll_answer.poll_id]
 
 
+async def leave(update, context):
+	user = update.effective_user
+
+	if not context.chat_data.get("game_in_process", False):
+		await update.message.reply_text("Игра не запущена")
+
+	elif user not in context.chat_data["players"]:
+		if user == context.chat_data['initiator'] and context.chat_data["turn"] == 0:
+			await update.message.reply_text("Организатор не может покинуть игру до её начала. Чтобы отменить игру, воспользуйся соответствующей кнопкой.")
+			return
+		await update.message.reply_text("Ты не в списке участников")
+
+	elif context.chat_data["turn"] == 0:
+		context.chat_data["players"].remove(user)
+		await context.chat_data["board"].edit_text(make_inviteboard(context), reply_markup=make_invite_markup(context), parse_mode="html")
+		await update.message.reply_text("Ты покинул(а) игру")
+
+	elif len(context.chat_data["players"]) == 1:
+		await delete_poll(update.message.chat.id, context)
+		await context.chat_data["board"].delete()
+		context.chat_data["game_in_process"] = False
+		await update.message.reply_text("Ты покинул(а) игру. Игра остановлена")
+	
+	else:
+		current_player = context.chat_data["current_player"]
+		current_number = tuple(context.chat_data["players"]).index(current_player)
+		leaver_number = tuple(context.chat_data["players"]).index(user)
+		del context.chat_data["players"][user]
+		await update.message.reply_text("Ты покинул(а) игру")
+
+		if user.id == current_player.id:
+			await delete_poll(update.message.chat.id, context)
+			await next_move(update, context)
+
+		else:
+			await context.chat_data["board"].edit_text(make_scoreboard(context), parse_mode="html")
+			if leaver_number > current_number:
+				context.chat_data["player_iterator"] = iter(dict(context.chat_data["players"]))
+				while next(context.chat_data["player_iterator"]) != context.chat_data["current_player"]:
+					pass
+
+
+async def delete_poll(chat_id, context):
+	for poll, msg in context.application.bot_data["poll:msg"].items():
+		if msg.chat.id == chat_id:
+			await msg.delete()
+			del context.application.bot_data["poll:msg"][poll]
+			break
+
 # async def resend(update, context):
 # 	msg = context.chat_data['cached_message']
 # 	if context.chat_data['game_in_process'] and context.chat_data['turn']:
@@ -328,6 +378,7 @@ application.bot_data["poll:msg"] = {}
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("zonk", zonk))
 application.add_handler(CommandHandler("zonk_b", zonk_b))
+application.add_handler(CommandHandler("leave", leave))
 # application.add_handler(CommandHandler("resend", resend))
 application.add_handler(CallbackQueryHandler(button_callback))
 application.add_handler(PollAnswerHandler(poll_answer))

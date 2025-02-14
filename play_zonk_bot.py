@@ -171,7 +171,7 @@ async def roll(dices_to_roll, context):
 	keyboard = [[InlineKeyboardButton("Не забирать", callback_data=f"notake:{context.chat_data['current_player'].id}")]]
 	poll_msg = await context.bot.send_poll(
 		chat_id=context._chat_id,
-		question="Выбери кости",
+		question=context.chat_data["current_player"].first_name + ", выбери кости",
 		options=options,
 		is_anonymous=False,
 		allows_multiple_answers=True,

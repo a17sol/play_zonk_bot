@@ -33,13 +33,16 @@ target = 5000
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 	await update.message.reply_text("Привет! Я зонк-бот для групповых чатов. Добавляй меня в группы и пиши /zonk, чтобы начать игру с друзьями!", disable_notification=True)
 
+
 async def zonk_b(update, context):
 	context.chat_data["game_type"] = "butovo"
 	await play(update, context)
 
+
 async def zonk(update, context):
 	context.chat_data["game_type"] = "classic"
 	await play(update, context)
+
 
 async def play(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
@@ -202,6 +205,7 @@ def make_take_markup(user_id):
 	keyboard.append([InlineKeyboardButton("Забрать и закончить", callback_data=f"take&finish:{user_id}")])
 	return InlineKeyboardMarkup(keyboard)
 
+
 def make_invite_markup(context):
 	user = context.chat_data["initiator"]
 	keyboard = [
@@ -211,6 +215,7 @@ def make_invite_markup(context):
 	]
 	return InlineKeyboardMarkup(keyboard)
 
+
 def make_inviteboard(context):
 	string = context.chat_data['initiator'].mention_html() + " хочет сыграть в "
 	string += "бутовский зонк" if context.chat_data['game_type'] == 'butovo' else "классический зонк"
@@ -219,6 +224,7 @@ def make_inviteboard(context):
 		players_names = [u.mention_html() for u in context.chat_data["players"]]
 		string += "Отозвались:\n" + "\n".join(players_names)
 	return string
+
 
 def make_scoreboard(context):
 	string = "Бутовский" if context.chat_data['game_type'] == 'butovo' else "Классический"
@@ -234,6 +240,7 @@ def make_scoreboard(context):
 	#string += "\n".join([f"{u.full_name} - {p}" for u, p in context.chat_data["players"].items()]) + "\n"
 	string += "Ходит " + context.chat_data["current_player"].mention_html()
 	return string
+
 
 def make_leaderboard(context):
 	string = "Игра окончена!\n"
@@ -354,16 +361,6 @@ async def delete_poll(chat_id, context):
 			del context.application.bot_data["poll:msg"][poll]
 			break
 
-# async def resend(update, context):
-# 	msg = context.chat_data['cached_message']
-# 	if context.chat_data['game_in_process'] and context.chat_data['turn']:
-# 		markup = make_dice_markup(context.chat_data['current_player'].id, context)
-# 	else:
-# 		markup = make_invite_markup(context.chat_data['current_player'], context)
-# 	await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, 
-# 		reply_markup=markup,
-# 		parse_mode="html"
-# 	)
 
 async def err_handler(update, context):
 	try:
@@ -382,7 +379,6 @@ application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("zonk", zonk))
 application.add_handler(CommandHandler("zonk_b", zonk_b))
 application.add_handler(CommandHandler("leave", leave))
-# application.add_handler(CommandHandler("resend", resend))
 application.add_handler(CallbackQueryHandler(button_callback))
 application.add_handler(PollAnswerHandler(poll_answer))
 application.add_error_handler(err_handler)

@@ -1,5 +1,5 @@
 # TODO: persist
-# TODO: game stop (time, request)
+# TODO: game timeout
 
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -7,7 +7,9 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Cont
 from telegram.error import TelegramError, NetworkError
 from random import randrange, shuffle, choice
 from collections import Counter
+from os import getenv
 import logging
+
 
 logging.basicConfig(
 	level=logging.INFO,
@@ -20,9 +22,13 @@ logging.basicConfig(
 logging.getLogger('httpx').setLevel(logging.WARNING)
 logging.getLogger('httpcore').setLevel(logging.WARNING)
 
-token = "REDACTED"
+token = getenv("ZONK_TOKEN")
+if not token:
+	logging.error("Token not set. Aborting.")
+	exit()
 
 target = 5000
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 	await update.message.reply_text("Привет! Я зонк-бот для групповых чатов. Добавляй меня в группы и пиши /zonk, чтобы начать игру с друзьями!", disable_notification=True)

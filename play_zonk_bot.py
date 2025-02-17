@@ -378,11 +378,14 @@ async def err_handler(update, context):
 		logging.error(str(type(e).__name__), exc_info=True)
 
 
-persistence = PicklePersistence(filepath='persistence.pikle')
+async def post_init(application):
+	if not application.bot_data.get("poll:msg", False):
+		application.bot_data["poll:msg"] = {}
 
-application = Application.builder().token(token).persistence(persistence).build()
 
-application.bot_data["poll:msg"] = {}
+persistence = PicklePersistence(filepath='bot_memory.pikle')
+
+application = Application.builder().token(token).persistence(persistence).post_init(post_init).build()
 
 application.add_handlers([
 	CommandHandler("start", start),

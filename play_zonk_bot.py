@@ -3,7 +3,14 @@
 
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, PollAnswerHandler
+from telegram.ext import (
+	Application,
+	CommandHandler,
+	CallbackQueryHandler,
+	ContextTypes,
+	PollAnswerHandler,
+	PicklePersistence
+)
 from telegram.error import TelegramError, NetworkError
 from random import randrange, shuffle, choice
 from collections import Counter
@@ -58,8 +65,6 @@ async def play(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 	context.chat_data["players"] = []
 	context.chat_data["initiator"] = user
 
-	context.chat_data["scoring_func"] = scoring_b if context.chat_data["game_type"] == 'butovo' else scoring
-
 	context.chat_data["board"] = await context.bot.send_message(
 		chat_id=update.effective_chat.id,
 		text=make_inviteboard(context),
@@ -111,7 +116,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 		await query.message.delete()
 
 	elif button_type == "take&continue":
-		subsubtotal, dices_used = context.chat_data["scoring_func"](context)
+		scoring_func = scoring if context.chat_data["game_type"] == 'clessic' else scoring_b
+		subsubtotal, dices_used = scoring_func(context)
 		if subsubtotal == 0:
 			context.chat_data["subtotal"] = 0
 			await next_move(update, context)
@@ -124,7 +130,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 		await query.message.delete()
 
 	elif button_type == "take&finish":
-		subsubtotal, _ = context.chat_data["scoring_func"](context)
+		scoring_func = scoring if context.chat_data["game_type"] == 'clessic' else scoring_b
+		subsubtotal, _ = scoring_func(context)
 		if subsubtotal == 0:
 			context.chat_data["subtotal"] = 0
 		else:
@@ -371,18 +378,22 @@ async def err_handler(update, context):
 		logging.error(str(type(e).__name__), exc_info=True)
 
 
-application = Application.builder().token(token).build()
+persistence = PicklePersistence(filepath='persistence.pikle')
+
+application = Application.builder().token(token).persistence(persistence).build()
 
 application.bot_data["poll:msg"] = {}
 
-application.add_handler(CommandHandler("start", start))
-application.add_handler(CommandHandler("zonk", zonk))
-application.add_handler(CommandHandler("zonk_b", zonk_b))
-application.add_handler(CommandHandler("leave", leave))
-application.add_handler(CallbackQueryHandler(button_callback))
-application.add_handler(PollAnswerHandler(poll_answer))
-application.add_error_handler(err_handler)
+application.add_handlers([
+	CommandHandler("start", start),
+	CommandHandler("zonk", zonk),
+	CommandHandler("zonk_b", zonk_b),
+	CommandHandler("leave", leave),
+	CallbackQueryHandler(button_callback),
+	PollAnswerHandler(poll_answer)
+])
 
+application.add_error_handler(err_handler)
 
 application.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 

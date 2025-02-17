@@ -1,4 +1,3 @@
-# TODO: persist
 # TODO: game timeout
 
 

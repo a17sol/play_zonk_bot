@@ -59,9 +59,9 @@ async def play(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 		return
 
 	user = update.effective_user
-	context.chat_data["game_in_process"] = True
+	context.chat_data["game_in_process"] = randrange(1, 1000000)
 	context.chat_data["turn"] = 0
-	context.chat_data["players"] = []
+	context.chat_data["players"] = {}
 	context.chat_data["initiator"] = user
 
 	context.chat_data["board"] = await context.bot.send_message(
@@ -82,7 +82,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 		if str(user.id) == owner_id or user in context.chat_data["players"]:
 			await query.answer("Ты уже в списке участников")
 			return
-		context.chat_data["players"].append(user)
+		context.chat_data["players"][user] = 0
 		await query.edit_message_text(
 			make_inviteboard(context),
 			parse_mode="html",
@@ -94,9 +94,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 		return
 
 	elif button_type == "begin":
-		context.chat_data["players"].append(user)
-		shuffle(context.chat_data["players"])
-		context.chat_data["players"] = {pl : 0 for pl in context.chat_data["players"]}
+		context.chat_data["players"][user] = 0
+		players = list(context.chat_data["players"])
+		shuffle(players)
+		context.chat_data["players"] = {pl : 0 for pl in players}
 		context.chat_data["player_iterator"] = iter(dict(context.chat_data["players"]))
 		context.chat_data["current_player"] = None
 		context.chat_data["leaderboard"] = []
@@ -104,14 +105,14 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 		context.chat_data["selected_dices"] = set()
 		context.chat_data["subtotal"] = 0
 		context.chat_data["turn"] = 1
-		await next_move(update, context)
+		await next_move(context)
 
 	elif button_type == "cancel":
-		context.chat_data["game_in_process"] = False
+		context.chat_data["game_in_process"] = 0
 		await query.edit_message_text("Игра отменена")
 
 	elif button_type == "notake":
-		await next_move(update, context)
+		await next_move(context)
 		await query.message.delete()
 
 	elif button_type == "take&continue":
@@ -119,7 +120,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 		subsubtotal, dices_used = scoring_func(context)
 		if subsubtotal == 0:
 			context.chat_data["subtotal"] = 0
-			await next_move(update, context)
+			await next_move(context)
 		else:
 			context.chat_data["subtotal"] += subsubtotal
 			dices_to_roll = len(context.chat_data["current_roll"]) - dices_used
@@ -149,26 +150,26 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 					parse_mode="html",
 					disable_notification=True
 				)
-				context.chat_data["game_in_process"] = False
+				context.chat_data["game_in_process"] = 0
 				await query.message.delete()
 				return
-		await next_move(update, context)
+		await next_move(context)
 		await query.message.delete()
 
 	await query.answer()
 
 
-async def next_move(update, context):
+async def next_move(context):
 	try:
 		pl = context.chat_data["current_player"] = next(context.chat_data["player_iterator"])
 	except StopIteration:
 		context.chat_data["turn"] += 1
-		tu = context.chat_data["turn"]
 		context.chat_data["player_iterator"] = iter(dict(context.chat_data["players"]))
 		pl = context.chat_data["current_player"] = next(context.chat_data["player_iterator"])
 
 	context.chat_data["subtotal"] = 0
 	await roll(6, context)
+	context.application.create_task(kick_by_time(context))
 
 
 async def roll(dices_to_roll, context):
@@ -321,43 +322,136 @@ async def poll_answer(update, context):
 		del context.bot_data["poll:msg"][poll_answer.poll_id]
 
 
+# async def leave(update, context):
+# 	user = update.effective_user
+
+# 	if not context.chat_data.get("game_in_process", False):
+# 		await update.message.reply_text("Игра не запущена")
+
+# 	elif user not in context.chat_data["players"]:
+# 		if user == context.chat_data['initiator'] and context.chat_data["turn"] == 0:
+# 			await update.message.reply_text("Организатор не может покинуть игру до её начала. Чтобы отменить игру, воспользуйся соответствующей кнопкой.")
+# 			return
+# 		await update.message.reply_text("Ты не в списке участников")
+
+# 	elif context.chat_data["turn"] == 0:
+# 		context.chat_data["players"].remove(user)
+# 		await context.chat_data["board"].edit_text(make_inviteboard(context), reply_markup=make_invite_markup(context), parse_mode="html")
+# 		await update.message.reply_text("Ты покинул(а) игру")
+
+# 	elif len(context.chat_data["players"]) == 1:
+# 		await delete_poll(update.message.chat.id, context)
+# 		await context.chat_data["board"].delete()
+# 		context.chat_data["game_in_process"] = 0
+# 		await update.message.reply_text("Ты покинул(а) игру. Игра остановлена")
+	
+# 	else:
+# 		current_player = context.chat_data["current_player"]
+# 		del context.chat_data["players"][user]
+# 		await update.message.reply_text("Ты покинул(а) игру")
+
+# 		if user.id == current_player.id:
+# 			await delete_poll(update.message.chat.id, context)
+# 			await next_move(context)
+
+# 		else:
+# 			await context.chat_data["board"].edit_text(make_scoreboard(context), parse_mode="html")
+# 			context.chat_data["player_iterator"] = iter(dict(context.chat_data["players"]))
+# 			while next(context.chat_data["player_iterator"]) != context.chat_data["current_player"]:
+# 				pass
+
+
+# async def kick_current(context, reason):
+# 	current_player = context.chat_data["current_player"]
+# 	chat_id = context._chat_id
+# 	del context.chat_data["players"][current_player]
+# 	text = f"{current_player.mention_html()} кикнут(а), поскольку {reason}"
+# 	if len(context.chat_data["players"]) == 0:
+# 		text += ". Игра завершена."
+# 		await context.chat_data["board"].delete()
+# 		context.chat_data["game_in_process"] = 0
+# 	else:
+# 		await next_move(context)
+# 	await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="html")
+# 	await delete_poll(chat_id, context)
+
+
+# async def kick_by_time(context):
+# 	player_before = context.chat_data["current_player"]
+# 	turn_before = context.chat_data["turn"]
+# 	game_before = context.chat_data["game_in_process"]
+# 	await sleep(1800)
+# 	player_after = context.chat_data["current_player"]
+# 	turn_after = context.chat_data["turn"]
+# 	game_after = context.chat_data["game_in_process"]
+# 	if player_before == player_after and turn_before == turn_after and game_before == game_after:
+# 		await kick_current(context, "не завершил(а) ход за 30 минут")
+
+
+
+################### new ver below
+
 async def leave(update, context):
 	user = update.effective_user
 
 	if not context.chat_data.get("game_in_process", False):
 		await update.message.reply_text("Игра не запущена")
+	
+	elif user == context.chat_data['initiator'] and context.chat_data["turn"] == 0:
+		await update.message.reply_text("Организатор не может покинуть игру до её начала. Чтобы отменить игру, воспользуйся соответствующей кнопкой.")
 
 	elif user not in context.chat_data["players"]:
-		if user == context.chat_data['initiator'] and context.chat_data["turn"] == 0:
-			await update.message.reply_text("Организатор не может покинуть игру до её начала. Чтобы отменить игру, воспользуйся соответствующей кнопкой.")
-			return
-		await update.message.reply_text("Ты не в списке участников")
+		await update.message.reply_text("Ты не в списке участников")	
 
-	elif context.chat_data["turn"] == 0:
-		context.chat_data["players"].remove(user)
-		await context.chat_data["board"].edit_text(make_inviteboard(context), reply_markup=make_invite_markup(context), parse_mode="html")
-		await update.message.reply_text("Ты покинул(а) игру")
-
-	elif len(context.chat_data["players"]) == 1:
-		await delete_poll(update.message.chat.id, context)
-		await context.chat_data["board"].delete()
-		context.chat_data["game_in_process"] = False
-		await update.message.reply_text("Ты покинул(а) игру. Игра остановлена")
-	
 	else:
-		current_player = context.chat_data["current_player"]
-		del context.chat_data["players"][user]
+		await kick(user, context)
 		await update.message.reply_text("Ты покинул(а) игру")
 
-		if user.id == current_player.id:
-			await delete_poll(update.message.chat.id, context)
-			await next_move(update, context)
 
-		else:
-			await context.chat_data["board"].edit_text(make_scoreboard(context), parse_mode="html")
-			context.chat_data["player_iterator"] = iter(dict(context.chat_data["players"]))
-			while next(context.chat_data["player_iterator"]) != context.chat_data["current_player"]:
-				pass
+async def kick_by_time(context):
+	player_before = context.chat_data["current_player"]
+	turn_before = context.chat_data["turn"]
+	game_before = context.chat_data["game_in_process"]
+	await sleep(1800)
+	player_after = context.chat_data["current_player"]
+	turn_after = context.chat_data["turn"]
+	game_after = context.chat_data["game_in_process"]
+	if player_before == player_after and turn_before == turn_after and game_before == game_after:
+		await kick(player_after, context)
+
+
+async def kick(user, context):
+	del context.chat_data["players"][user]
+
+	if context.chat_data["turn"] == 0:
+		await context.chat_data["board"].edit_text(make_inviteboard(context), reply_markup=make_invite_markup(context), parse_mode="html")
+
+	elif len(context.chat_data["players"]) <= 1:
+		await context.chat_data["board"].delete()
+		await delete_poll(context._chat_id, context)
+		context.chat_data["game_in_process"] = 0
+		if len(context.chat_data["players"]) == 1:
+			context.chat_data["leaderboard"] += list(context.chat_data["players"])
+			context.chat_data["board"] = await context.bot.send_message(
+				chat_id=context._chat_id,
+				text=make_leaderboard(context),
+				parse_mode="html",
+				disable_notification=True
+			)
+
+	elif context.chat_data["current_player"].id == user.id:
+		await delete_poll(update.message.chat.id, context)
+		await next_move(context)
+
+	else:
+		await context.chat_data["board"].edit_text(make_scoreboard(context), parse_mode="html")
+		context.chat_data["player_iterator"] = iter(dict(context.chat_data["players"]))
+		while next(context.chat_data["player_iterator"]) != context.chat_data["current_player"]:
+			pass
+
+
+################### new ver above
+
 
 
 async def delete_poll(chat_id, context):
@@ -367,6 +461,8 @@ async def delete_poll(chat_id, context):
 			del context.application.bot_data["poll:msg"][poll]
 			break
 
+async def ver(update, context):
+	update.message.reply_text("Версия с новым leave и kick_by_time")
 
 async def err_handler(update, context):
 	try:
@@ -391,6 +487,7 @@ application.add_handlers([
 	CommandHandler("zonk", zonk),
 	CommandHandler("zonk_b", zonk_b),
 	CommandHandler("leave", leave),
+	CommandHandler("ver", ver),
 	CallbackQueryHandler(button_callback),
 	PollAnswerHandler(poll_answer)
 ])

@@ -14,6 +14,7 @@ from telegram.error import TelegramError, NetworkError
 from random import randrange, shuffle, choice
 from collections import Counter
 from os import getenv
+from asyncio import sleep
 import logging
 
 
@@ -113,7 +114,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 	elif button_type == "notake":
 		await next_move(context)
-		await query.message.delete()
+		# await query.message.delete()
+		await delete_poll(context)
 
 	elif button_type == "take&continue":
 		scoring_func = scoring if context.chat_data["game_type"] == 'clessic' else scoring_b
@@ -127,7 +129,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 			if dices_to_roll == 0:
 				dices_to_roll = 6
 			await roll(dices_to_roll, context)
-		await query.message.delete()
+		# await query.message.delete()
+		await delete_poll(context)
 
 	elif button_type == "take&finish":
 		scoring_func = scoring if context.chat_data["game_type"] == 'clessic' else scoring_b
@@ -154,7 +157,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 				await query.message.delete()
 				return
 		await next_move(context)
-		await query.message.delete()
+		# await query.message.delete()
+		await delete_poll(context)
 
 	await query.answer()
 
@@ -319,7 +323,6 @@ async def poll_answer(update, context):
 		await poll_msg.edit_reply_markup(make_take_markup(answered_user))
 		option_indexes = poll_answer.option_ids
 		chat_data["selected_dices"] = set(option_indexes)
-		del context.bot_data["poll:msg"][poll_answer.poll_id]
 
 
 # async def leave(update, context):
@@ -416,8 +419,9 @@ async def kick_by_time(context):
 	player_after = context.chat_data["current_player"]
 	turn_after = context.chat_data["turn"]
 	game_after = context.chat_data["game_in_process"]
-	if player_before == player_after and turn_before == turn_after and game_before == game_after:
+	if player_before.id == player_after.id and turn_before == turn_after and game_before == game_after:
 		await kick(player_after, context)
+		await context.bot.send_message(chat_id=context._chat_id, text=player_after.mention_html() + " кикнут(а), так как не закончил(а) ход за 30 минут.", parse_mode='html')
 
 
 async def kick(user, context):
@@ -428,7 +432,7 @@ async def kick(user, context):
 
 	elif len(context.chat_data["players"]) <= 1:
 		await context.chat_data["board"].delete()
-		await delete_poll(context._chat_id, context)
+		await delete_poll(context)
 		context.chat_data["game_in_process"] = 0
 		if len(context.chat_data["players"]) == 1:
 			context.chat_data["leaderboard"] += list(context.chat_data["players"])
@@ -440,7 +444,7 @@ async def kick(user, context):
 			)
 
 	elif context.chat_data["current_player"].id == user.id:
-		await delete_poll(update.message.chat.id, context)
+		await delete_poll(context)
 		await next_move(context)
 
 	else:
@@ -454,15 +458,15 @@ async def kick(user, context):
 
 
 
-async def delete_poll(chat_id, context):
+async def delete_poll(context):
 	for poll, msg in context.application.bot_data["poll:msg"].items():
-		if msg.chat.id == chat_id:
+		if msg.chat.id == context._chat_id:
 			await msg.delete()
 			del context.application.bot_data["poll:msg"][poll]
 			break
 
 async def ver(update, context):
-	update.message.reply_text("Версия с новым leave и kick_by_time")
+	await update.message.reply_text("2025-02-18 17:29")
 
 async def err_handler(update, context):
 	try:

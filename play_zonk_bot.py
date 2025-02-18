@@ -1,6 +1,4 @@
-# TODO: poll:msg & msg:poll (or chat instead of msg?). 
-#       poll:msg & chat:poll? save_poll(poll_id, msg), delete_poll(chat_id), chat_by_poll(poll_id)?
-#       or even create_poll(context), delete_poll(chat_id/context?), msg_by_poll(poll_id)
+# TODO: change poll removal system
 # TODO: factor out game end
 
 
@@ -11,7 +9,8 @@ from telegram.ext import (
 	CallbackQueryHandler,
 	ContextTypes,
 	PollAnswerHandler,
-	PicklePersistence
+	PicklePersistence,
+	CallbackContext
 )
 from telegram.error import TelegramError, NetworkError
 from random import randrange, shuffle, choice
@@ -19,6 +18,7 @@ from collections import Counter
 from os import getenv
 from asyncio import sleep
 import logging
+from time import time
 
 
 logging.basicConfig(
@@ -116,12 +116,13 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 		await query.edit_message_text("Игра отменена")
 
 	elif button_type == "notake":
+		context.application.create_task(delete_poll(context))
 		await next_move(context)
 		# await query.message.delete()
-		await delete_poll(context)
 
 	elif button_type == "take&continue":
-		scoring_func = scoring if context.chat_data["game_type"] == 'clessic' else scoring_b
+		context.application.create_task(delete_poll(context))
+		scoring_func = scoring if context.chat_data["game_type"] == 'classic' else scoring_b
 		subsubtotal, dices_used = scoring_func(context)
 		if subsubtotal == 0:
 			context.chat_data["subtotal"] = 0
@@ -133,10 +134,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 				dices_to_roll = 6
 			await roll(dices_to_roll, context)
 		# await query.message.delete()
-		await delete_poll(context)
 
 	elif button_type == "take&finish":
-		scoring_func = scoring if context.chat_data["game_type"] == 'clessic' else scoring_b
+		context.application.create_task(delete_poll(context))
+		scoring_func = scoring if context.chat_data["game_type"] == 'classic' else scoring_b
 		subsubtotal, _ = scoring_func(context)
 		if subsubtotal == 0:
 			context.chat_data["subtotal"] = 0
@@ -157,11 +158,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 					disable_notification=True
 				)
 				context.chat_data["game_in_process"] = 0
-				await query.message.delete()
 				return
 		await next_move(context)
 		# await query.message.delete()
-		await delete_poll(context)
 
 	await query.answer()
 
@@ -176,7 +175,7 @@ async def next_move(context):
 
 	context.chat_data["subtotal"] = 0
 	await roll(6, context)
-	context.application.create_task(kick_by_time(context))
+	context.chat_data["move_begin_time"] = time()
 
 
 async def roll(dices_to_roll, context):
@@ -325,19 +324,6 @@ async def leave(update, context):
 		await update.message.reply_text("Ты покинул(а) игру")
 
 
-async def kick_by_time(context):
-	player_before = context.chat_data["current_player"]
-	turn_before = context.chat_data["turn"]
-	game_before = context.chat_data["game_in_process"]
-	await sleep(1800)
-	player_after = context.chat_data["current_player"]
-	turn_after = context.chat_data["turn"]
-	game_after = context.chat_data["game_in_process"]
-	if player_before.id == player_after.id and turn_before == turn_after and game_before == game_after:
-		await kick(player_after, context)
-		await context.bot.send_message(chat_id=context._chat_id, text=player_after.mention_html() + " кикнут(а), так как не закончил(а) ход за 30 минут.", parse_mode='html')
-
-
 async def kick(user, context):
 	del context.chat_data["players"][user]
 
@@ -346,7 +332,7 @@ async def kick(user, context):
 
 	elif len(context.chat_data["players"]) <= 1:
 		await context.chat_data["board"].delete()
-		await delete_poll(context)
+		context.application.create_task(delete_poll(context))
 		context.chat_data["game_in_process"] = 0
 		if len(context.chat_data["players"]) == 1:
 			context.chat_data["leaderboard"] += list(context.chat_data["players"])
@@ -358,7 +344,7 @@ async def kick(user, context):
 			)
 
 	elif context.chat_data["current_player"].id == user.id:
-		await delete_poll(context)
+		context.application.create_task(delete_poll(context))
 		await next_move(context)
 
 	else:
@@ -369,7 +355,7 @@ async def kick(user, context):
 
 
 async def ver(update, context):
-	await update.message.reply_text("2025-02-19 01:01")
+	await update.message.reply_text("2025-02-19 04:23")
 
 
 async def err_handler(update, context):
@@ -381,11 +367,26 @@ async def err_handler(update, context):
 		logging.error(str(type(e).__name__), exc_info=True)
 
 
-async def init_poll_index(application):
+async def post_init(application):
 	if not application.bot_data.get("poll_id:poll_msg", False):
 		application.bot_data["poll_id:poll_msg"] = {}
 	if not application.bot_data.get("chat_id:poll_msg", False):
 		application.bot_data["chat_id:poll_msg"] = {}
+
+
+async def check_inactivity(context):
+	current_time = time()
+	for chat_id, chat_data in context.application.chat_data.items():
+		if chat_data.get("move_begin_time", 9_999_999_999) + 1800 < current_time:
+			del chat_data["move_begin_time"]
+			user = chat_data["current_player"]
+			await kick(user, CallbackContext(context.application, chat_id=chat_id))
+			await context.bot.send_message(
+				chat_id=chat_id, 
+				text=user.mention_html() + " кикнут(а), так как не закончил(а) ход за 30 минут.", 
+				parse_mode='html'
+			)
+
 
 
 async def create_poll(context):
@@ -409,9 +410,10 @@ async def create_poll(context):
 
 async def delete_poll(context):
 	poll_msg = context.bot_data["chat_id:poll_msg"][context._chat_id]
-	await poll_msg.delete()
 	del context.bot_data["poll_id:poll_msg"][poll_msg.poll.id]
 	del context.bot_data["chat_id:poll_msg"][context._chat_id]
+	await sleep(0.5)
+	await poll_msg.delete()
 
 
 def poll_msg(poll_id, context):
@@ -420,7 +422,10 @@ def poll_msg(poll_id, context):
 
 persistence = PicklePersistence(filepath='bot_memory.pikle')
 
-application = Application.builder().token(token).persistence(persistence).post_init(init_poll_index).build()
+application = Application.builder().token(token).persistence(persistence).post_init(post_init).build()
+
+job_queue = application.job_queue
+job_minute = job_queue.run_repeating(check_inactivity, interval=60)
 
 application.add_handlers([
 	CommandHandler("start", start),

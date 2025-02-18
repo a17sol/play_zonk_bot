@@ -1,4 +1,7 @@
-# TODO: game timeout
+# TODO: poll:msg & msg:poll (or chat instead of msg?). 
+#       poll:msg & chat:poll? save_poll(poll_id, msg), delete_poll(chat_id), chat_by_poll(poll_id)?
+#       or even create_poll(context), delete_poll(chat_id/context?), msg_by_poll(poll_id)
+# TODO: factor out game end
 
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -178,34 +181,15 @@ async def next_move(context):
 
 async def roll(dices_to_roll, context):
 
-	emo = "\uFE0F\u20E3"
-	jokes = ["Рисковая игра!", "Йо-хо-хо!", "Кто не рискует - тот не пьёт!", "Риск - моё второе имя!", "Шансы 2 к 6!"]
-
-	#await context.chat_data["board"].edit_text(make_scoreboard(context), parse_mode="html")
 	tmp = await context.bot.send_message(
 		chat_id=context._chat_id,
 		text=make_scoreboard(context),
 		parse_mode="html",
 		disable_notification=True
 	)
-
 	context.chat_data["current_roll"] = [randrange(1, 7) for _ in range(dices_to_roll)]
 	context.chat_data["selected_dices"] = set()
-	additional_opt = [choice(jokes)] if len(context.chat_data["current_roll"]) == 1 else []
-	options = [str(i)+emo for i in context.chat_data["current_roll"]] + additional_opt
-	keyboard = [[InlineKeyboardButton("Не забирать", callback_data=f"notake:{context.chat_data['current_player'].id}")]]
-	poll_msg = await context.bot.send_poll(
-		chat_id=context._chat_id,
-		question=context.chat_data["current_player"].first_name + ", выбери кости",
-		options=options,
-		is_anonymous=False,
-		allows_multiple_answers=True,
-		# reply_markup=make_take_markup(context.chat_data["current_player"].id, context)
-		reply_markup=InlineKeyboardMarkup(keyboard),
-		disable_notification=True
-	)
-
-	context.bot_data["poll:msg"][poll_msg.poll.id] = poll_msg
+	await create_poll(context)
 	await context.chat_data["board"].delete()
 	context.chat_data["board"] = tmp
 
@@ -315,84 +299,14 @@ def scoring_b(context):
 
 async def poll_answer(update, context):
 	poll_answer = update.poll_answer
-	poll_msg = context.bot_data["poll:msg"][poll_answer.poll_id]
-	chat_data = context.application.chat_data[poll_msg.chat.id]
+	poll_message = poll_msg(poll_answer.poll_id, context)
+	chat_data = context.application.chat_data[poll_message.chat.id]
 	answered_user = poll_answer.user.id
 	intended_user = chat_data["current_player"].id
 	if answered_user == intended_user:
-		await poll_msg.edit_reply_markup(make_take_markup(answered_user))
-		option_indexes = poll_answer.option_ids
-		chat_data["selected_dices"] = set(option_indexes)
+		await poll_message.edit_reply_markup(make_take_markup(answered_user))
+		chat_data["selected_dices"] = set(poll_answer.option_ids)
 
-
-# async def leave(update, context):
-# 	user = update.effective_user
-
-# 	if not context.chat_data.get("game_in_process", False):
-# 		await update.message.reply_text("Игра не запущена")
-
-# 	elif user not in context.chat_data["players"]:
-# 		if user == context.chat_data['initiator'] and context.chat_data["turn"] == 0:
-# 			await update.message.reply_text("Организатор не может покинуть игру до её начала. Чтобы отменить игру, воспользуйся соответствующей кнопкой.")
-# 			return
-# 		await update.message.reply_text("Ты не в списке участников")
-
-# 	elif context.chat_data["turn"] == 0:
-# 		context.chat_data["players"].remove(user)
-# 		await context.chat_data["board"].edit_text(make_inviteboard(context), reply_markup=make_invite_markup(context), parse_mode="html")
-# 		await update.message.reply_text("Ты покинул(а) игру")
-
-# 	elif len(context.chat_data["players"]) == 1:
-# 		await delete_poll(update.message.chat.id, context)
-# 		await context.chat_data["board"].delete()
-# 		context.chat_data["game_in_process"] = 0
-# 		await update.message.reply_text("Ты покинул(а) игру. Игра остановлена")
-	
-# 	else:
-# 		current_player = context.chat_data["current_player"]
-# 		del context.chat_data["players"][user]
-# 		await update.message.reply_text("Ты покинул(а) игру")
-
-# 		if user.id == current_player.id:
-# 			await delete_poll(update.message.chat.id, context)
-# 			await next_move(context)
-
-# 		else:
-# 			await context.chat_data["board"].edit_text(make_scoreboard(context), parse_mode="html")
-# 			context.chat_data["player_iterator"] = iter(dict(context.chat_data["players"]))
-# 			while next(context.chat_data["player_iterator"]) != context.chat_data["current_player"]:
-# 				pass
-
-
-# async def kick_current(context, reason):
-# 	current_player = context.chat_data["current_player"]
-# 	chat_id = context._chat_id
-# 	del context.chat_data["players"][current_player]
-# 	text = f"{current_player.mention_html()} кикнут(а), поскольку {reason}"
-# 	if len(context.chat_data["players"]) == 0:
-# 		text += ". Игра завершена."
-# 		await context.chat_data["board"].delete()
-# 		context.chat_data["game_in_process"] = 0
-# 	else:
-# 		await next_move(context)
-# 	await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="html")
-# 	await delete_poll(chat_id, context)
-
-
-# async def kick_by_time(context):
-# 	player_before = context.chat_data["current_player"]
-# 	turn_before = context.chat_data["turn"]
-# 	game_before = context.chat_data["game_in_process"]
-# 	await sleep(1800)
-# 	player_after = context.chat_data["current_player"]
-# 	turn_after = context.chat_data["turn"]
-# 	game_after = context.chat_data["game_in_process"]
-# 	if player_before == player_after and turn_before == turn_after and game_before == game_after:
-# 		await kick_current(context, "не завершил(а) ход за 30 минут")
-
-
-
-################### new ver below
 
 async def leave(update, context):
 	user = update.effective_user
@@ -454,19 +368,9 @@ async def kick(user, context):
 			pass
 
 
-################### new ver above
-
-
-
-async def delete_poll(context):
-	for poll, msg in context.application.bot_data["poll:msg"].items():
-		if msg.chat.id == context._chat_id:
-			await msg.delete()
-			del context.application.bot_data["poll:msg"][poll]
-			break
-
 async def ver(update, context):
-	await update.message.reply_text("2025-02-18 17:29")
+	await update.message.reply_text("2025-02-19 01:01")
+
 
 async def err_handler(update, context):
 	try:
@@ -477,14 +381,46 @@ async def err_handler(update, context):
 		logging.error(str(type(e).__name__), exc_info=True)
 
 
-async def post_init(application):
-	if not application.bot_data.get("poll:msg", False):
-		application.bot_data["poll:msg"] = {}
+async def init_poll_index(application):
+	if not application.bot_data.get("poll_id:poll_msg", False):
+		application.bot_data["poll_id:poll_msg"] = {}
+	if not application.bot_data.get("chat_id:poll_msg", False):
+		application.bot_data["chat_id:poll_msg"] = {}
+
+
+async def create_poll(context):
+	emo = "\uFE0F\u20E3"
+	jokes = ["Рисковая игра!", "Йо-хо-хо!", "Кто не рискует - тот не пьёт!", "Риск - моё второе имя!", "Шансы 2 к 6!"]
+	additional_opt = [choice(jokes)] if len(context.chat_data["current_roll"]) == 1 else []
+	options = [str(i) + emo for i in context.chat_data["current_roll"]] + additional_opt
+	keyboard = [[InlineKeyboardButton("Не забирать", callback_data=f"notake:{context.chat_data['current_player'].id}")]]
+	poll_msg = await context.bot.send_poll(
+		chat_id=context._chat_id,
+		question=context.chat_data["current_player"].first_name + ", выбери кости",
+		options=options,
+		is_anonymous=False,
+		allows_multiple_answers=True,
+		reply_markup=InlineKeyboardMarkup(keyboard),
+		disable_notification=True
+	)
+	context.bot_data["poll_id:poll_msg"][poll_msg.poll.id] = poll_msg
+	context.bot_data["chat_id:poll_msg"][context._chat_id] = poll_msg
+
+
+async def delete_poll(context):
+	poll_msg = context.bot_data["chat_id:poll_msg"][context._chat_id]
+	await poll_msg.delete()
+	del context.bot_data["poll_id:poll_msg"][poll_msg.poll.id]
+	del context.bot_data["chat_id:poll_msg"][context._chat_id]
+
+
+def poll_msg(poll_id, context):
+	return context.bot_data["poll_id:poll_msg"][poll_id]
 
 
 persistence = PicklePersistence(filepath='bot_memory.pikle')
 
-application = Application.builder().token(token).persistence(persistence).post_init(post_init).build()
+application = Application.builder().token(token).persistence(persistence).post_init(init_poll_index).build()
 
 application.add_handlers([
 	CommandHandler("start", start),

@@ -65,12 +65,12 @@ async def zonk(update, context):
 
 async def play(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
-	logging.info("Invite posted in chat %d \"%s\"", update.message.chat.id, update.message.chat.title)
-
 	if context.chat_data.get("game_in_process", False):
 		await update.message.reply_text("Игра уже идёт", disable_notification=True)
 		return
 
+	logging.info("Invite posted in chat %d \"%s\"", update.message.chat.id, update.message.chat.title)
+	
 	user = update.effective_user
 	context.chat_data["game_in_process"] = randrange(1, 1000000)
 	context.chat_data["turn"] = 0
@@ -382,7 +382,7 @@ async def check_inactivity(context):
 	for chat_id, chat_data in context.application.chat_data.items():
 		if not chat_data.get("game_in_process", 0) or chat_data['turn'] == 0:
 			continue
-		if chat_data.get("move_begin_time", 9_999_999_999) + 1800 < current_time:
+		if chat_data.get("move_begin_time", 9_999_999_999) + 900 < current_time:
 			del chat_data["move_begin_time"]
 			user = chat_data["current_player"]
 			await kick(user, CallbackContext(context.application, chat_id=chat_id))

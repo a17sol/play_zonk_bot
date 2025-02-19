@@ -3,7 +3,19 @@
 # TODO: check_inactivity safety
 
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from os import getenv
+from time import time
+from random import randrange, shuffle, choice
+from asyncio import sleep
+from collections import Counter
+import logging
+
+from telegram import (
+	Update, 
+	InlineKeyboardButton, 
+	InlineKeyboardMarkup, 
+	LinkPreviewOptions
+)
 from telegram.ext import (
 	Application,
 	CommandHandler,
@@ -14,12 +26,6 @@ from telegram.ext import (
 	CallbackContext
 )
 from telegram.error import TelegramError, NetworkError
-from random import randrange, shuffle, choice
-from collections import Counter
-from os import getenv
-from asyncio import sleep
-import logging
-from time import time
 
 
 logging.basicConfig(
@@ -43,7 +49,7 @@ target = 5000
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-	await update.message.reply_text("Привет! Я зонк-бот для групповых чатов. Добавляй меня в группы и пиши /zonk, чтобы начать игру с друзьями!", disable_notification=True)
+	await update.message.reply_text("Привет! Я зонк-бот для групповых чатов. Добавляй меня в группы и пиши /zonk, чтобы начать игру с друзьями!\nДополнительная информация здесь: /help", disable_notification=True)
 
 
 async def zonk_b(update, context):
@@ -357,7 +363,7 @@ async def kick(user, context):
 
 
 async def ver(update, context):
-	await update.message.reply_text("2025-02-19 04:45")
+	await update.message.reply_text("2025-02-19 17:48")
 
 
 async def err_handler(update, context):
@@ -367,13 +373,6 @@ async def err_handler(update, context):
 		logging.error(f"{type(e).__name__}: {e}")
 	except Exception as e:
 		logging.error(str(type(e).__name__), exc_info=True)
-
-
-async def post_init(application):
-	if not application.bot_data.get("poll_id:poll_msg", False):
-		application.bot_data["poll_id:poll_msg"] = {}
-	if not application.bot_data.get("chat_id:poll_msg", False):
-		application.bot_data["chat_id:poll_msg"] = {}
 
 
 async def check_inactivity(context):
@@ -391,6 +390,12 @@ async def check_inactivity(context):
 				parse_mode='html'
 			)
 
+
+async def post_init(application):
+	if not application.bot_data.get("poll_id:poll_msg", False):
+		application.bot_data["poll_id:poll_msg"] = {}
+	if not application.bot_data.get("chat_id:poll_msg", False):
+		application.bot_data["chat_id:poll_msg"] = {}
 
 
 async def create_poll(context):
@@ -424,6 +429,51 @@ def poll_msg(poll_id, context):
 	return context.bot_data["poll_id:poll_msg"][poll_id]
 
 
+async def rules(update, context):
+    string = (
+    	"<b>Правила игры</b>\n"
+        "Игроки по очереди бросают 6 кубиков и ищут комбинации в своём броске. "
+        "Комбинации можно забрать в руку и получить очки, затем можно либо перебросить "
+        "незабранные кубики и т.д., либо закончить ход. Если в броске нет ни одной "
+        "комбинации, набранные за ход очки сгорают, и ход переходит к следующему. "
+        "Если игроку удалось забрать все 6 костей, ему даётся ещё 6 и ход продолжается. "
+        "Игра ведётся до 5000 очков, игроки занимают места в порядке достижения цели.\n"
+        "\n<b>Комбинации</b>\n"
+        "1\uFE0F\u20E3 - 100\n"
+        "5\uFE0F\u20E3 - 50\n"
+        "Три одинаковых \U000023FA\U000023FA\U000023FA - их номинал × 100\n"
+        "Три единицы 1\uFE0F\u20E31\uFE0F\u20E31\uFE0F\u20E3 - 1000\n"
+        "Каждая следующая такая же кость удваивает очки\n"
+        "1\uFE0F\u20E32\uFE0F\u20E33\uFE0F\u20E3"
+        "4\uFE0F\u20E35\uFE0F\u20E36\uFE0F\u20E3 - 1500\n"
+        "<b>Только в классическом зонке:</b>\n"
+        "Три пары \U000023FA\U000023FA\U0001F53C\U0001F53C\U000023F9\U000023F9 - 750\n"
+        "<b>Только в бутовском зонке:</b>\n"
+        "1\uFE0F\u20E32\uFE0F\u20E33\uFE0F\u20E34\uFE0F\u20E35\uFE0F\u20E3 - 500\n"
+        "2\uFE0F\u20E33\uFE0F\u20E34\uFE0F\u20E35\uFE0F\u20E36\uFE0F\u20E3 - 750"
+    )
+    await update.message.reply_html(text=string, disable_notification=True)
+
+
+async def send_help(update, context):
+    string = (
+        "Все команды:\n"
+        "/start - Приветствие\n"
+        "/help - Помощь\n"
+        "/rules - Правила игры\n"
+        "/zonk - Начать игру в зонк\n"
+        "/zonk_b - Начать игру в бутовский зонк\n"
+        "/leave - Покинуть игру\n"
+        "Автор: https://t.me/Misha_Solovyev\n"
+        "Исходный код: https://github.com/a17sol/play_zonk_bot"
+    )
+    await update.message.reply_text(
+        text=string, 
+        link_preview_options=LinkPreviewOptions(is_disabled=True), 
+        disable_notification=True
+    )
+
+
 persistence = PicklePersistence(filepath='bot_memory.pikle')
 
 application = Application.builder().token(token).persistence(persistence).post_init(post_init).build()
@@ -436,6 +486,8 @@ application.add_handlers([
 	CommandHandler("zonk", zonk),
 	CommandHandler("zonk_b", zonk_b),
 	CommandHandler("leave", leave),
+	CommandHandler("rules", rules),
+	CommandHandler("help", send_help),
 	CommandHandler("ver", ver),
 	CallbackQueryHandler(button_callback),
 	PollAnswerHandler(poll_answer)

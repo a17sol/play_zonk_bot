@@ -369,11 +369,15 @@ async def ver(update, context):
 	await update.message.reply_text("2025-02-20 01:11")
 
 async def stat(update, context):
-	games_in_process = 0
+	active_games = []
+	invites_waiting = []
 	for chat_id, chat_data in context.application.chat_data.items():
 		if chat_data.get("game_in_process", 0):
-			games_in_process += 1
-	await update.message.reply_text("Games in process: " + str(games_in_process))
+			if chat_data["turn"]:
+				active_games.append(chat_id)
+			else:
+				invites_waiting.append(chat_id)
+	await update.message.reply_text("Active games: " + str(active_games) + "\nInvites waiting: " + str(invites_waiting))
 
 
 async def err_handler(update, context):

@@ -54,20 +54,22 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def zonk_b(update, context):
+	if context.chat_data.get("game_in_process", False):
+		await update.message.reply_text("Игра уже идёт", disable_notification=True)
+		return
 	context.chat_data["game_type"] = "butovo"
 	await play(update, context)
 
 
 async def zonk(update, context):
+	if context.chat_data.get("game_in_process", False):
+		await update.message.reply_text("Игра уже идёт", disable_notification=True)
+		return
 	context.chat_data["game_type"] = "classic"
 	await play(update, context)
 
 
 async def play(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-
-	if context.chat_data.get("game_in_process", False):
-		await update.message.reply_text("Игра уже идёт", disable_notification=True)
-		return
 
 	logging.info("Invite posted in chat %d \"%s\"", update.message.chat.id, update.message.chat.title)
 	

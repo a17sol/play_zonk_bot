@@ -9,6 +9,7 @@ from random import randrange, shuffle, choice
 from asyncio import sleep
 from collections import Counter
 import logging
+from traceback import extract_stack
 
 from telegram import (
 	Update, 
@@ -64,7 +65,7 @@ async def zonk(update, context):
 
 async def play(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
-	logging.info("Game started in chat %d \"%s\"", update.message.chat.id, update.message.chat.title)
+	logging.info("Invite posted in chat %d \"%s\"", update.message.chat.id, update.message.chat.title)
 
 	if context.chat_data.get("game_in_process", False):
 		await update.message.reply_text("Игра уже идёт", disable_notification=True)
@@ -363,14 +364,15 @@ async def kick(user, context):
 
 
 async def ver(update, context):
-	await update.message.reply_text("2025-02-19 17:48")
+	await update.message.reply_text("2025-02-19 18:21")
 
 
 async def err_handler(update, context):
 	try:
 		raise context.error
 	except (TelegramError, NetworkError, TimeoutError, ConnectionError) as e:
-		logging.error(f"{type(e).__name__}: {e}")
+		stack = extract_stack()
+		logging.error(f"{type(e).__name__}: {e} (last functions: {" -> ".join([f.name for f in stack[-(min(6, len(stack))):-1]])})")
 	except Exception as e:
 		logging.error(str(type(e).__name__), exc_info=True)
 

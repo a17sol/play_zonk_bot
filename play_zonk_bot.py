@@ -9,7 +9,7 @@ from random import randrange, shuffle, choice
 from asyncio import sleep
 from collections import Counter
 import logging
-from traceback import extract_stack
+from traceback import extract_tb
 
 from telegram import (
 	Update, 
@@ -366,7 +366,7 @@ async def kick(user, context):
 
 
 async def ver(update, context):
-	await update.message.reply_text("2025-02-19 18:21")
+	await update.message.reply_text("2025-02-20 01:11")
 
 async def stat(update, context):
 	games_in_process = 0
@@ -380,8 +380,12 @@ async def err_handler(update, context):
 	try:
 		raise context.error
 	except (TelegramError, NetworkError, TimeoutError, ConnectionError) as e:
-		stack = extract_stack()
-		logging.error(f"{type(e).__name__}: {e} (last functions: {" -> ".join([f.name for f in stack[-(min(6, len(stack))):-1]])})")
+		er = e
+		while er:
+			tb = extract_tb(er.__traceback__)
+			er = er.__cause__ or er.__context__
+		stack_functions = [frame.name for frame in tb]
+		logging.error(f"{type(e).__name__}: {e} (traceback: {', '.join(stack_functions)})")
 	except Exception as e:
 		logging.error(str(type(e).__name__), exc_info=True)
 
@@ -397,7 +401,7 @@ async def check_inactivity(context):
 			await kick(user, CallbackContext(context.application, chat_id=chat_id))
 			await context.bot.send_message(
 				chat_id=chat_id, 
-				text=user.mention_html() + " кикнут(а), так как не закончил(а) ход за 30 минут.", 
+				text=user.mention_html() + " кикнут(а), так как не закончил(а) ход за 15 минут.", 
 				parse_mode='html'
 			)
 

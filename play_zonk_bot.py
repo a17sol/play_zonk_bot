@@ -1,5 +1,6 @@
 # TODO: change poll removal system
 # TODO: factor out game end
+# TODO: check_inactivity safety
 
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -31,6 +32,7 @@ logging.basicConfig(
 )
 logging.getLogger('httpx').setLevel(logging.WARNING)
 logging.getLogger('httpcore').setLevel(logging.WARNING)
+logging.getLogger('apscheduler').setLevel(logging.WARNING)
 
 token = getenv("ZONK_TOKEN")
 if not token:
@@ -355,7 +357,7 @@ async def kick(user, context):
 
 
 async def ver(update, context):
-	await update.message.reply_text("2025-02-19 04:23")
+	await update.message.reply_text("2025-02-19 04:45")
 
 
 async def err_handler(update, context):
@@ -377,6 +379,8 @@ async def post_init(application):
 async def check_inactivity(context):
 	current_time = time()
 	for chat_id, chat_data in context.application.chat_data.items():
+		if not chat_data.get("game_in_process", 0) or chat_data['turn'] == 0:
+			continue
 		if chat_data.get("move_begin_time", 9_999_999_999) + 1800 < current_time:
 			del chat_data["move_begin_time"]
 			user = chat_data["current_player"]

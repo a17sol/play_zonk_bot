@@ -366,6 +366,13 @@ async def kick(user, context):
 async def ver(update, context):
 	await update.message.reply_text("2025-02-19 18:21")
 
+async def stat(update, context):
+	games_in_process = 0
+	for chat_id, chat_data in context.application.chat_data.items():
+		if chat_data.get("game_in_process", 0):
+			games_in_process += 1
+	await update.message.reply_text("Games in process: " + str(games_in_process))
+
 
 async def err_handler(update, context):
 	try:
@@ -491,6 +498,7 @@ application.add_handlers([
 	CommandHandler("rules", rules),
 	CommandHandler("help", send_help),
 	CommandHandler("ver", ver),
+	CommandHandler("stat", stat),
 	CallbackQueryHandler(button_callback),
 	PollAnswerHandler(poll_answer)
 ])

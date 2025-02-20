@@ -70,8 +70,9 @@ async def zonk(update, context):
 
 
 async def play(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+	title = update.message.chat.title or "(personal chat)"
 
-	logging.info("Invite posted in chat %d \"%s\"", update.message.chat.id, update.message.chat.title)
+	logging.info("Invite posted in chat %d \"%s\" by %s", update.message.chat.id, title, update.effective_user.full_name)
 	
 	user = update.effective_user
 	context.chat_data["game_in_process"] = randrange(1, 1000000)
@@ -342,9 +343,12 @@ async def kick(user, context):
 		await context.chat_data["board"].edit_text(make_inviteboard(context), reply_markup=make_invite_markup(context), parse_mode="html")
 
 	elif len(context.chat_data["players"]) <= 1:
-		await context.chat_data["board"].delete()
-		context.application.create_task(delete_poll(context))
 		context.chat_data["game_in_process"] = 0
+		try:
+			await context.chat_data["board"].delete()
+		except:
+			pass # Continue if message was already deleted by user in personal chat
+		context.application.create_task(delete_poll(context))
 		if len(context.chat_data["players"]) == 1:
 			context.chat_data["leaderboard"] += list(context.chat_data["players"])
 			context.chat_data["board"] = await context.bot.send_message(
@@ -366,7 +370,7 @@ async def kick(user, context):
 
 
 async def ver(update, context):
-	await update.message.reply_text("2025-02-20 01:11")
+	await update.message.reply_text("2025-02-20 03:03")
 
 async def stat(update, context):
 	active_games = []
@@ -441,7 +445,10 @@ async def delete_poll(context):
 	del context.bot_data["poll_id:poll_msg"][poll_msg.poll.id]
 	del context.bot_data["chat_id:poll_msg"][context._chat_id]
 	await sleep(0.5)
-	await poll_msg.delete()
+	try:
+		await poll_msg.delete()
+	except:
+		pass # Continue if message was already deleted by user in personal chat
 
 
 def poll_msg(poll_id, context):

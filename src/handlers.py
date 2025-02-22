@@ -97,11 +97,11 @@ async def stat(update, context):
 	games = []
 	invites = []
 	for chat_id, chat_data in context.application.chat_data.items():
-		if chat_data["game"]:
-				games.append(chat_id)
-		if chat_data["invite"]:
+		if 'game' in chat_data:
+			games.append(chat_id)
+		if 'invite' in chat_data:
 			invites.append(chat_id)
-	await update.message.reply_text("Games: " + str(active_games) + "\nInvites: " + str(invites_waiting))
+	await update.message.reply_text("Games: " + str(games) + "\nInvites: " + str(invites))
 
 
 # Button callback

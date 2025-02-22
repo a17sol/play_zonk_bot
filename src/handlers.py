@@ -1,3 +1,5 @@
+import logging
+
 from telegram import LinkPreviewOptions
 from telegram.ext import CommandHandler, CallbackQueryHandler
 from telegram.error import BadRequest
@@ -60,6 +62,11 @@ async def post_invite(type, update, context):
 		text=ui.make_inviteboard(context),
 		parse_mode="html", 
 		reply_markup=ui.make_invite_markup(context)
+	)
+	logging.info("Invite posted in chat %d \"%s\" by %s", 
+		update.message.chat.id, 
+		update.message.chat.title or "(personal chat)", 
+		update.effective_user.full_name
 	)
 
 

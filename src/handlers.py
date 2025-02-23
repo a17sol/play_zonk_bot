@@ -9,6 +9,7 @@ import invite
 import game
 from poll import create_poll, unstore_poll
 
+
 def register_handlers(app):
 	app.add_handlers([
 		CommandHandler("start", start),
@@ -78,7 +79,6 @@ async def leave(update, context):
 			await update.message.reply_text("Ты не в списке участников", disable_notification=True)
 		else:
 			await update.message.reply_text("Ты покинул(а) игру", disable_notification=True)
-
 
 	elif 'invite' in context.chat_data:
 		try:
@@ -190,6 +190,7 @@ async def show_roll(context):
 		await poll.delete()
 	except AttributeError:
 		pass # Suppress error on first move when unstore_poll returns None
+
 
 async def show_game_end(context):
 	await context.bot.send_message(

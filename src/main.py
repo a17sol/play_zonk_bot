@@ -54,7 +54,15 @@ persistence_file = os.path.join(data_dir, "bot_memory.pickle")
 
 persistence = PicklePersistence(filepath=persistence_file)
 
-application = Application.builder().token(token).persistence(persistence).post_init(poll_storage_init).build()
+application = (
+	Application.builder()
+	.token(token)
+	.persistence(persistence)
+	.get_updates_write_timeout(15)
+	.get_updates_read_timeout(15)
+	.post_init(poll_storage_init)
+	.build()
+)
 
 set_up_moderation(application)
 register_handlers(application)

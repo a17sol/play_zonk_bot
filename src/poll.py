@@ -16,11 +16,11 @@ async def poll_answer(update, context):
 	answered_user = poll_answer.user.id
 	intended_user = chat_data['game'].current_user().id
 	if answered_user == intended_user:
+		chat_data['game'].select(poll_answer.option_ids)
 		if poll_answer.option_ids:
 			await poll_message.edit_reply_markup(ui.make_take_markup(answered_user))
 		else:
 			await poll_message.edit_reply_markup(ui.make_notake_markup(answered_user))
-		chat_data['game'].select(poll_answer.option_ids)
 
 
 # Poll management

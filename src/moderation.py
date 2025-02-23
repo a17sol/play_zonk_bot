@@ -2,7 +2,7 @@ from time import time
 
 from telegram.ext import CallbackContext
 
-from handlers import kick, safe_delete
+from helpers import kick, safe_delete
 
 
 def set_up_moderation(app):

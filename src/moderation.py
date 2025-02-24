@@ -12,7 +12,7 @@ def set_up_moderation(app):
 async def check_inactivity(context):
 	current_time = time()
 
-	for chat_id, chat_data in context.application.chat_data.items():
+	for chat_id, chat_data in dict(context.application.chat_data).items():
 
 		if (game := chat_data.get('game')) and game.move_start_time + 900 < current_time:
 			user = chat_data['game'].current_user()
@@ -25,11 +25,11 @@ async def check_inactivity(context):
 			)
 
 		elif (inv := chat_data.get('invite')) and inv.creation_time + 900 < current_time:
-			del chat_data['invite']
+			await safe_delete(chat_data['board'])
+			context.application.drop_chat_data(chat_id)
 			await context.bot.send_message(
 				chat_id=chat_id, 
 				text="Приглашение удалено, так как игра не началась за 15 минут.", 
 				parse_mode='html'
 			)
-			await safe_delete(chat_data['board'])
 

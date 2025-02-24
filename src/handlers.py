@@ -136,11 +136,11 @@ async def button_callback(update, context):
 
 	elif button_type == "begin":
 		context.chat_data['game'] = game.Game(context.chat_data['invite'].type, context.chat_data['invite'].get_players())
-		del context.chat_data['invite']
+		del context.chat_data['invite'] # Potentially unsafe when using persistence. Check.
 		await show_roll(context)
 
 	elif button_type == "cancel":
-		del context.chat_data['invite']
+		context.application.drop_chat_data(context._chat_id)
 		await query.edit_message_text("Игра отменена")
 
 	elif button_type == "take&continue" or button_type == "notake":

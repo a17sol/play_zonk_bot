@@ -39,7 +39,7 @@ class Game:
 	def _lock_when_over(func):
 		def wrapper(self, *args, **kwargs):
 			if self.over:
-				raise RuntimeError("Game is over, can't continue")
+				raise GameEnd("Game is over, can't continue")
 			return func(self, *args, **kwargs)
 		return wrapper
 

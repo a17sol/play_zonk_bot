@@ -44,9 +44,9 @@ async def show_game_end(context):
 		parse_mode="html",
 		disable_notification=True
 	)
+	del context.chat_data['game']
 	await safe_delete(context.chat_data["board"])
 	await safe_delete(unstore_poll(context))
-	del context.chat_data['game']
 
 
 async def safe_delete(msg):

@@ -1,6 +1,6 @@
 import logging
 import os
-from traceback import extract_tb
+# from traceback import extract_tb
 # from telegram.error import TelegramError, NetworkError
 
 from telegram.ext import Application, PicklePersistence

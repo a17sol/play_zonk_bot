@@ -73,4 +73,4 @@ register_poll_handler(application)
 
 application.add_error_handler(err_handler)
 
-application.run_polling(allowed_updates=[], drop_pending_updates=True)
+application.run_polling(allowed_updates=[], drop_pending_updates=False)

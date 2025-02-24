@@ -3,7 +3,7 @@ import os
 # from traceback import extract_tb
 # from telegram.error import TelegramError, NetworkError
 
-from telegram.ext import Application, PicklePersistence
+from telegram.ext import Application, PicklePersistence, PersistenceInput
 
 from handlers import register_handlers
 from poll import register_poll_handler, poll_storage_init
@@ -52,7 +52,10 @@ data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
 os.makedirs(data_dir, exist_ok=True)
 persistence_file = os.path.join(data_dir, "bot_memory.pickle")
 
-persistence = PicklePersistence(filepath=persistence_file)
+persistence = PicklePersistence(
+	filepath=persistence_file,
+	store_data=PersistenceInput(user_data=False)
+)
 
 application = (
 	Application.builder()

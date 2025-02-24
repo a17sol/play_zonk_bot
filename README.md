@@ -22,7 +22,7 @@ While single-player games in a personal chat with the bot are possible, the main
 
 The game process is intuitive and follows the standard Zonk (Farkle) rules: players roll their dice, select combos using the poll interface, and decide when to stop by pressing the corresponding button. Players have 15 minutes to complete their turn; otherwise, they will be kicked out. At the end of the game, a leaderboard is displayed.
 
-## Command List:
+## Command List
 - `/start` - Welcome message
 - `/help` - Help and info
 - `/rules` - Game rules

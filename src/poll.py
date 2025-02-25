@@ -39,8 +39,7 @@ async def create_poll(context):
 		options=ui.make_poll_opts(context),
 		is_anonymous=False,
 		allows_multiple_answers=True,
-		reply_markup=ui.make_notake_markup(context.chat_data['game'].current_user().id),
-		disable_notification=True
+		reply_markup=ui.make_notake_markup(context.chat_data['game'].current_user().id)
 	)
 
 	context.bot_data["poll_id:poll_msg"][poll_msg.poll.id] = poll_msg

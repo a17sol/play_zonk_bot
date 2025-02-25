@@ -3,7 +3,7 @@ import os
 # from traceback import extract_tb
 # from telegram.error import TelegramError, NetworkError
 
-from telegram.ext import Application, PicklePersistence, PersistenceInput
+from telegram.ext import Application, PicklePersistence, PersistenceInput, Defaults
 
 from handlers import register_handlers
 from poll import register_poll_handler, poll_storage_init
@@ -57,9 +57,12 @@ persistence = PicklePersistence(
 	store_data=PersistenceInput(user_data=False)
 )
 
+defaults = Defaults(parse_mode='html', disable_notification=True)
+
 application = (
 	Application.builder()
 	.token(token)
+	.defaults(defaults)
 	.persistence(persistence)
 	.get_updates_write_timeout(15)
 	.get_updates_read_timeout(15)
@@ -73,4 +76,4 @@ register_poll_handler(application)
 
 application.add_error_handler(err_handler)
 
-application.run_polling(allowed_updates=[], drop_pending_updates=False)
+application.run_polling(allowed_updates=[], drop_pending_updates=True)

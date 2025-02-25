@@ -19,17 +19,16 @@ async def check_inactivity(context):
 			chat_context = CallbackContext(context.application, chat_id=chat_id)
 			await kick(user, chat_context)
 			await context.bot.send_message(
-				chat_id=chat_id, 
-				text=user.mention_html() + " кикнут(а), так как не закончил(а) ход за 15 минут.", 
-				parse_mode='html'
+				chat_id=chat_id,
+				text=user.mention_html() + " кикнут(а), так как не закончил(а) ход за 15 минут.",
+				disable_notification=False
 			)
 
 		elif (inv := chat_data.get('invite')) and inv.creation_time + 900 < current_time:
 			await safe_delete(chat_data['board'])
 			context.application.drop_chat_data(chat_id)
 			await context.bot.send_message(
-				chat_id=chat_id, 
-				text="Приглашение удалено, так как игра не началась за 15 минут.", 
-				parse_mode='html'
+				chat_id=chat_id,
+				text="Приглашение удалено, так как игра не началась за 15 минут."
 			)
 

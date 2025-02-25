@@ -15,17 +15,14 @@ async def kick(user, context):
 		await show_game_end(context)
 	else:
 		await context.chat_data["board"].edit_text(
-			ui.make_scoreboard(context), 
-			parse_mode="html"
+			ui.make_scoreboard(context)
 		)
 
 
 async def show_roll(context):
 	tmp_board = await context.bot.send_message(
 		chat_id=context._chat_id,
-		text=ui.make_scoreboard(context),
-		parse_mode="html",
-		disable_notification=True
+		text=ui.make_scoreboard(context)
 	)
 	poll = unstore_poll(context)
 	await create_poll(context)
@@ -40,11 +37,8 @@ async def show_roll(context):
 async def show_game_end(context):
 	await context.bot.send_message(
 		chat_id=context._chat_id,
-		text=ui.make_leaderboard(context),
-		parse_mode="html",
-		disable_notification=True
+		text=ui.make_leaderboard(context)
 	)
-	# del context.chat_data['game']
 	await safe_delete(context.chat_data["board"])
 	await safe_delete(unstore_poll(context))
 	context.application.drop_chat_data(context._chat_id)

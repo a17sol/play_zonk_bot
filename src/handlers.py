@@ -24,7 +24,7 @@ def register_handlers(app):
 
 
 async def start(update, context):
-	await update.message.reply_text(text=ui.start, disable_notification=True)
+	await update.message.reply_text(text=ui.start)
 
 
 async def ver(update, context):
@@ -32,14 +32,13 @@ async def ver(update, context):
 
 
 async def rules(update, context):
-	await update.message.reply_html(text=ui.rules, disable_notification=True)
+	await update.message.reply_text(text=ui.rules)
 
 
 async def send_help(update, context):
 	await update.message.reply_text(
-		text=ui.send_help, 
-		link_preview_options=LinkPreviewOptions(is_disabled=True), 
-		disable_notification=True
+		text=ui.send_help,
+		link_preview_options=LinkPreviewOptions(is_disabled=True),
 	)
 
 
@@ -51,17 +50,17 @@ async def zonk_b(update, context):
 
 async def post_invite(type, update, context):
 	if 'game' in context.chat_data:
-		await update.message.reply_text("Игра уже идёт", disable_notification=True)
+		await update.message.reply_text("Игра уже идёт")
 		return
 	if 'invite' in context.chat_data:
-		await update.message.reply_text("В этом чате уже есть приглашение", disable_notification=True)
+		await update.message.reply_text("В этом чате уже есть приглашение")
 		return
 	context.chat_data['invite'] = invite.Invite(type, update.effective_user)
 	context.chat_data["board"] = await context.bot.send_message(
 		chat_id=update.effective_chat.id,
 		text=ui.make_inviteboard(context),
-		parse_mode="html", 
-		reply_markup=ui.make_invite_markup(context)
+		reply_markup=ui.make_invite_markup(context),
+		disable_notification=False
 	)
 	logging.info("Invite posted in chat %d \"%s\" by %s", 
 		update.message.chat.id, 
@@ -75,28 +74,27 @@ async def leave(update, context):
 		try:
 			await kick(update.effective_user, context)
 		except ValueError:
-			await update.message.reply_text("Ты не в списке участников", disable_notification=True)
+			await update.message.reply_text("Ты не в списке участников")
 		else:
-			await update.message.reply_text("Ты покинул(а) игру", disable_notification=True)
+			await update.message.reply_text("Ты покинул(а) игру")
 
 	elif 'invite' in context.chat_data:
 		try:
 			context.chat_data['invite'].remove(update.effective_user)
 		except invite.InitiatorDeletionError:
 			await update.message.reply_text("Организатор не может покинуть игру до её начала. "
-				"Чтобы отменить игру, воспользуйся соответствующей кнопкой.", disable_notification=True)
+				"Чтобы отменить игру, воспользуйся соответствующей кнопкой.")
 		except invite.PlayerNotFoundError:
-			await update.message.reply_text("Ты не в списке участников", disable_notification=True)
+			await update.message.reply_text("Ты не в списке участников")
 		else:
-			await update.message.reply_text("Ты покинул(а) игру", disable_notification=True)
+			await update.message.reply_text("Ты покинул(а) игру")
 			await context.chat_data["board"].edit_text(
-				ui.make_inviteboard(context), 
-				reply_markup=ui.make_invite_markup(context), 
-				parse_mode="html"
+				ui.make_inviteboard(context),
+				reply_markup=ui.make_invite_markup(context)
 			)
 
 	else:
-		await update.message.reply_text("Игра не запущена", disable_notification=True)
+		await update.message.reply_text("Игра не запущена")
 
 
 async def stat(update, context):
@@ -125,9 +123,8 @@ async def button_callback(update, context):
 			return
 		else:
 			await context.chat_data["board"].edit_text(
-				ui.make_inviteboard(context), 
-				reply_markup=ui.make_invite_markup(context), 
-				parse_mode="html"
+				ui.make_inviteboard(context),
+				reply_markup=ui.make_invite_markup(context)
 			)
 
 	elif str(user.id) != owner_id:
@@ -135,8 +132,11 @@ async def button_callback(update, context):
 		return
 
 	elif button_type == "begin":
-		context.chat_data['game'] = game.Game(context.chat_data['invite'].type, context.chat_data['invite'].get_players())
-		del context.chat_data['invite'] # Potentially unsafe when using persistence. Check.
+		context.chat_data['game'] = game.Game(
+			context.chat_data['invite'].type, 
+			context.chat_data['invite'].get_players()
+		)
+		del context.chat_data['invite']
 		await show_roll(context)
 
 	elif button_type == "cancel":
@@ -154,5 +154,6 @@ async def button_callback(update, context):
 			await show_game_end(context)
 		else:
 			await show_roll(context)
+
 	await query.answer()
 

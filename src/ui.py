@@ -45,10 +45,40 @@ send_help = (
 )
 
 
+game_exists = "Игра уже идёт"
+
+game_doesnt_exist = "Игра не запущена"
+
+invite_exists = "В этом чате уже есть приглашение"
+
+you_dont_play = "Ты не в списке участников"
+
+you_already_play = "Ты уже в списке участников"
+
+you_leave = "Ты покинул(а) игру"
+
+not_your_button = "Это не твоя кнопка"
+
+game_cancelled = "Игра отменена"
+
+initiator_cant_leave = (
+	"Организатор не может покинуть игру до её начала. "
+	"Чтобы отменить игру, воспользуйся соответствующей кнопкой."
+)
+
+
+def invite_timeout(sec):
+	return f"Приглашение удалено, так как игра не началась за {int(sec/60)} минут."
+
+def turn_timeout(user, sec):
+	return f"{user.mention_html()} кикнут(а), так как не закончил(а) ход за {int(sec/60)} минут."
+
+
 def make_take_markup(user_id):
-	keyboard = []
-	keyboard.append([InlineKeyboardButton("Забрать и продолжить", callback_data=f"take&continue:{user_id}")])
-	keyboard.append([InlineKeyboardButton("Забрать и закончить", callback_data=f"take&finish:{user_id}")])
+	keyboard = [
+		[InlineKeyboardButton("Забрать и продолжить", callback_data=f"take&continue:{user_id}")],
+		[InlineKeyboardButton("Забрать и закончить", callback_data=f"take&finish:{user_id}")]
+	]
 	return InlineKeyboardMarkup(keyboard)
 
 
@@ -69,9 +99,10 @@ def make_invite_markup(context):
 
 def make_inviteboard(context):
 	invite = context.chat_data['invite']
-	string = invite.initiator.mention_html() + " хочет сыграть в "
-	string += "бутовский зонк" if invite.type == 'butovo' else "классический зонк"
-	string += ". Кто в деле?\n"
+	mention = invite.initiator.mention_html()
+	game_type = "бутовский зонк" if invite.type == 'butovo' else "классический зонк"
+	string = f"{mention} хочет сыграть в {game_type}. Кто в деле?\n"
+
 	if invite.players:
 		players_names = [u.mention_html() for u in invite.players]
 		string += "Отозвались:\n" + "\n".join(players_names)
@@ -80,24 +111,23 @@ def make_inviteboard(context):
 
 def make_scoreboard(context):
 	game = context.chat_data['game']
-	string = "Бутовский" if game.type == 'butovo' else "Классический"
-	string += " зонк\nКруг " + str(game.turn) + "\n"
-	string += "Текущий счёт:\n"
+	game_type = "Бутовский" if game.type == 'butovo' else "Классический"
+	string = f"{game_type} зонк\nКруг {game.turn}\nТекущий счёт:\n"
 	for u, p in game.players.items():
 		string += f"{u.full_name} - {p}"
-		if u == list(game.players)[game.current_player]:
-			string += "+" + str(game.subtotal)
+		if u == game.current_user():
+			string += f"+{game.subtotal}"
 		string += "\n"
 	for u in game.winners:
 		string += f"{u.full_name} закончил(а)\n"
-	string += "Ходит " + list(game.players)[game.current_player].mention_html()
+	string += f"Ходит {game.current_user().mention_html()}"
 	return string
 
 
 def make_leaderboard(context):
 	string = "Игра окончена!\n"
 	for i, u in enumerate(context.chat_data["game"].winners):
-		string += f"{i + 1} место - {u.mention_html()}" + "\n"
+		string += f"{i + 1} место - {u.mention_html()}\n"
 	return string
 
 
@@ -110,7 +140,9 @@ def make_poll_opts(context):
 		"Кто не рискует - тот не пьёт!", 
 		"Риск - моё второе имя!", 
 		"Шансы 2 к 6!",
-		"Шанс!"
+		"Шанс!",
+		"Риск - благородное дело!",
+		"Fortis fortuna adiuvat!"
 	]
 	additional_opt = [choice(jokes)] if len(opts) == 1 else []
 	return [str(i) + emo for i in opts] + additional_opt

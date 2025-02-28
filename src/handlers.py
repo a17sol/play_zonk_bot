@@ -50,10 +50,10 @@ async def zonk_b(update, context):
 
 async def post_invite(type, update, context):
 	if 'game' in context.chat_data:
-		await update.message.reply_text("Игра уже идёт")
+		await update.message.reply_text(ui.game_exists)
 		return
 	if 'invite' in context.chat_data:
-		await update.message.reply_text("В этом чате уже есть приглашение")
+		await update.message.reply_text(ui.invite_exists)
 		return
 	context.chat_data['invite'] = invite.Invite(type, update.effective_user)
 	context.chat_data["board"] = await context.bot.send_message(
@@ -74,27 +74,26 @@ async def leave(update, context):
 		try:
 			await kick(update.effective_user, context)
 		except ValueError:
-			await update.message.reply_text("Ты не в списке участников")
+			await update.message.reply_text(ui.you_dont_play)
 		else:
-			await update.message.reply_text("Ты покинул(а) игру")
+			await update.message.reply_text(ui.you_leave)
 
 	elif 'invite' in context.chat_data:
 		try:
 			context.chat_data['invite'].remove(update.effective_user)
 		except invite.InitiatorDeletionError:
-			await update.message.reply_text("Организатор не может покинуть игру до её начала. "
-				"Чтобы отменить игру, воспользуйся соответствующей кнопкой.")
+			await update.message.reply_text(ui.initiator_cant_leave)
 		except invite.PlayerNotFoundError:
-			await update.message.reply_text("Ты не в списке участников")
+			await update.message.reply_text(ui.you_dont_play)
 		else:
-			await update.message.reply_text("Ты покинул(а) игру")
+			await update.message.reply_text(ui.you_leave)
 			await context.chat_data["board"].edit_text(
 				ui.make_inviteboard(context),
 				reply_markup=ui.make_invite_markup(context)
 			)
 
 	else:
-		await update.message.reply_text("Игра не запущена")
+		await update.message.reply_text(ui.game_doesnt_exist)
 
 
 async def stat(update, context):
@@ -119,7 +118,7 @@ async def button_callback(update, context):
 		try:
 			context.chat_data['invite'].add(user)
 		except ValueError:
-			await query.answer("Ты уже в списке участников")
+			await query.answer(ui.you_already_play)
 			return
 		else:
 			await context.chat_data["board"].edit_text(
@@ -128,7 +127,7 @@ async def button_callback(update, context):
 			)
 
 	elif str(user.id) != owner_id:
-		await query.answer("Это не твоя кнопка")
+		await query.answer(ui.not_your_button)
 		return
 
 	elif button_type == "begin":
@@ -141,7 +140,7 @@ async def button_callback(update, context):
 
 	elif button_type == "cancel":
 		context.application.drop_chat_data(context._chat_id)
-		await query.edit_message_text("Игра отменена")
+		await query.edit_message_text(ui.game_cancelled)
 
 	elif button_type == "take&continue" or button_type == "notake":
 		context.chat_data['game'].take_and_continue()

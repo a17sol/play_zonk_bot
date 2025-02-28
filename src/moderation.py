@@ -3,7 +3,7 @@ from time import time
 from telegram.ext import CallbackContext
 
 from helpers import kick, safe_delete
-from ui import invite_timeout, turn_timeout
+import ui
 
 
 def set_up_moderation(app):

@@ -35,6 +35,7 @@ async def poll_storage_init(application):
 
 
 async def create_poll(context):
+	logging.info("Entered create_poll function")
 	current_user = context.chat_data['game'].current_user()
 	while True:
 		try:

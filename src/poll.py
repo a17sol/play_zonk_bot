@@ -1,3 +1,5 @@
+import logging
+
 from telegram.ext import PollAnswerHandler
 
 import ui
@@ -33,15 +35,27 @@ async def poll_storage_init(application):
 
 
 async def create_poll(context):
-	poll_msg = await context.bot.send_poll(
-		chat_id=context._chat_id,
-		question=context.chat_data['game'].current_user().first_name + ", выбери кости",
-		options=ui.make_poll_opts(context),
-		is_anonymous=False,
-		allows_multiple_answers=True,
-		reply_markup=ui.make_notake_markup(context.chat_data['game'].current_user().id)
-	)
-
+	current_user = context.chat_data['game'].current_user()
+	while True:
+		try:
+			poll_msg = await context.bot.send_poll(
+				chat_id=context._chat_id,
+				question=ui.poll_header(current_user.first_name),
+				options=ui.make_poll_opts(context),
+				is_anonymous=False,
+				allows_multiple_answers=True,
+				reply_markup=ui.make_notake_markup(current_user.id)
+			)
+			break
+		except Exception as e:
+			await context.bot.send_message(
+				chat_id=context._chat_id,
+				text=ui.poll_send_error
+			)
+			logging.warning(
+				"%s exception while sending poll message. Retrying.",
+				type(e).__name__
+			)
 	context.bot_data["poll_id:poll_msg"][poll_msg.poll.id] = poll_msg
 	context.bot_data["chat_id:poll_msg"][context._chat_id] = poll_msg
 

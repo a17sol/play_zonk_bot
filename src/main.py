@@ -45,7 +45,7 @@ async def err_handler(update, context):
 	# 		stack_functions.extend(["|"] + [frame.name for frame in tb])
 	# 	logging.error(f"{type(e).__name__}: {e} (traceback: {', '.join(stack_functions)})")
 	except Exception as e:
-		logging.error(str(type(e).__name__), exc_info=True)
+		logging.error(type(e).__name__, exc_info=True)
 
 
 data_dir = os.path.join(os.path.dirname(__file__), "..", "data")

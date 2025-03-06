@@ -48,5 +48,5 @@ async def show_game_end(context):
 async def safe_await(function, *args, **kwargs):
 	try:
 		await function(*args, **kwargs)
-	except BadRequest, Forbidden:
+	except (BadRequest, Forbidden):
 		pass # Continue if user blocked the bot or deleted the chat or the message

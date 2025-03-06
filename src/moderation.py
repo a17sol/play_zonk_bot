@@ -2,7 +2,7 @@ from time import time
 
 from telegram.ext import CallbackContext
 
-from helpers import kick, safe_delete
+from helpers import kick, safe_await
 import ui
 
 
@@ -19,18 +19,20 @@ async def check_inactivity(context):
 		if (game := chat_data.get('game')) and game.move_start_time + tto < current_time:
 			user = chat_data['game'].current_user()
 			chat_context = CallbackContext(context.application, chat_id=chat_id)
-			await kick(user, chat_context)
-			await context.bot.send_message(
+			await safe_await(
+				context.bot.send_message,
 				chat_id=chat_id,
 				text=ui.turn_timeout(user, tto),
 				disable_notification=False
 			)
+			await kick(user, chat_context)
 
 		elif (inv := chat_data.get('invite')) and inv.creation_time + ito < current_time:
-			await safe_delete(chat_data['board'])
-			context.application.drop_chat_data(chat_id)
-			await context.bot.send_message(
+			await safe_await(chat_data['board'].delete)
+			await safe_await(
+				context.bot.send_message,
 				chat_id=chat_id,
 				text=ui.invite_timeout(ito)
 			)
+			context.application.drop_chat_data(chat_id)
 

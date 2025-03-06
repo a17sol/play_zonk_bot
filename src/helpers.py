@@ -1,4 +1,4 @@
-from telegram.error import BadRequest
+from telegram.error import BadRequest, Forbidden
 
 import ui
 from poll import create_poll, unstore_poll
@@ -26,7 +26,7 @@ async def show_roll(context):
 	)
 	poll = unstore_poll(context)
 	await create_poll(context)
-	await safe_delete(context.chat_data["board"])
+	await safe_await(context.chat_data["board"].delete)
 	context.chat_data["board"] = tmp_board
 	try:
 		await poll.delete()
@@ -35,18 +35,18 @@ async def show_roll(context):
 
 
 async def show_game_end(context):
-	await context.bot.send_message(
+	await safe_await(
+		context.bot.send_message,
 		chat_id=context._chat_id,
 		text=ui.make_leaderboard(context)
 	)
-	await safe_delete(context.chat_data["board"])
-	await safe_delete(unstore_poll(context))
+	await safe_await(context.chat_data["board"].delete)
+	await safe_await(unstore_poll(context).delete)
 	context.application.drop_chat_data(context._chat_id)
 
 
-async def safe_delete(msg):
+async def safe_await(function, *args, **kwargs):
 	try:
-		await msg.delete()
-	except BadRequest:
-		pass # Continue if message was already deleted by user in personal chat
-
+		await function(*args, **kwargs)
+	except BadRequest, Forbidden:
+		pass # Continue if user blocked the bot or deleted the chat or the message

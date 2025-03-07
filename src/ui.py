@@ -141,6 +141,9 @@ def make_leaderboard(context):
 	string = "Игра окончена!\n"
 	for i, u in enumerate(context.chat_data["game"].winners):
 		string += f"{i + 1} место - {u.mention_html()}\n"
+	if context._chat_id == -1001627987758:
+		string += ("Если вам понравилась игра, вы можете поставить звёздочку "
+			"на гитхабе: https://github.com/a17sol/play_zonk_bot")
 	return string
 
 
@@ -155,7 +158,8 @@ def make_poll_opts(context):
 		"Шансы 2 к 6!",
 		"Шанс!",
 		"Риск - благородное дело!",
-		"Fortis fortuna adiuvat!"
+		"Fortis fortuna adiuvat!",
+		"Фортуна, лотерея!"
 	]
 	additional_opt = [choice(jokes)] if len(opts) == 1 else []
 	return [str(i) + emo for i in opts] + additional_opt

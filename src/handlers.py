@@ -17,7 +17,6 @@ def register_handlers(app):
 		CommandHandler("leave", leave),
 		CommandHandler("rules", rules),
 		CommandHandler("help", send_help),
-		CommandHandler("ver", ver),
 		CommandHandler("stat", stat),
 		CallbackQueryHandler(button_callback),
 	])
@@ -25,10 +24,6 @@ def register_handlers(app):
 
 async def start(update, context):
 	await update.message.reply_text(text=ui.start)
-
-
-async def ver(update, context):
-	await update.message.reply_text("2025-02-22 17:46")
 
 
 async def rules(update, context):
@@ -62,10 +57,11 @@ async def post_invite(type, update, context):
 		reply_markup=ui.make_invite_markup(context),
 		disable_notification=False
 	)
-	logging.info("Invite posted in chat %d \"%s\" by %s", 
+	logging.info("Invite posted in chat %d \"%s\" by %s, type: \"%s\"", 
 		update.message.chat.id, 
 		update.message.chat.title or "(personal chat)", 
-		update.effective_user.full_name
+		update.effective_user.username,
+		type
 	)
 
 
@@ -137,6 +133,7 @@ async def button_callback(update, context):
 		)
 		del context.chat_data['invite']
 		await show_roll(context)
+		logging.info("Game started in chat %d", context._chat_id)
 
 	elif button_type == "cancel":
 		context.application.drop_chat_data(context._chat_id)

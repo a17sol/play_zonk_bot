@@ -29,4 +29,4 @@ The game process is intuitive and follows the standard Zonk (Farkle) rules: play
 - `/zonk` - Play Zonk (AKA Farkle, see rules for details)
 - `/zonk_b` - Play Butovo Zonk (a local variation, see rules for details)
 - `/leave` - Leave the game (can be used anytime during or before the game)
-- `/stat` and `/ver` - Service commands, not useful for players but helpful for bot development and maintenance
+- `/stat` and - Service command, not useful for players but helpful for bot development and maintenance

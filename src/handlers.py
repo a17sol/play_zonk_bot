@@ -57,7 +57,7 @@ async def post_invite(type, update, context):
 		reply_markup=ui.make_invite_markup(context),
 		disable_notification=False
 	)
-	logging.info("Invite posted in chat %d \"%s\" by %s, type: \"%s\"", 
+	logging.info("Invite posted in chat %d \"%s\" by @%s, type: \"%s\"", 
 		update.message.chat.id, 
 		update.message.chat.title or "(personal chat)", 
 		update.effective_user.username,
@@ -127,13 +127,17 @@ async def button_callback(update, context):
 		return
 
 	elif button_type == "begin":
+		logging.info(
+			"Game started in chat %d. Players: %s", 
+			context._chat_id, 
+			[p.username for p in context.chat_data['invite'].get_players()]
+		)
 		context.chat_data['game'] = game.Game(
 			context.chat_data['invite'].type, 
 			context.chat_data['invite'].get_players()
 		)
 		del context.chat_data['invite']
 		await show_roll(context)
-		logging.info("Game started in chat %d", context._chat_id)
 
 	elif button_type == "cancel":
 		context.application.drop_chat_data(context._chat_id)

@@ -6,7 +6,10 @@ from game import ExtraordinaryRoll, GameEnd
 
 
 async def kick(user, context):
-	# Raises ValueError if user not in game
+	"""
+	Kick the user out from the game defined by context.
+	Raises ValueError if user not in game, all other cases handled.
+	"""
 	try:
 		context.chat_data['game'].kick(user)
 	except ExtraordinaryRoll:
@@ -20,6 +23,9 @@ async def kick(user, context):
 
 
 async def show_roll(context):
+	"""
+	Replace existing scoreboard and poll with new ones in proper order.
+	"""
 	tmp_board = await context.bot.send_message(
 		chat_id=context._chat_id,
 		text=ui.make_scoreboard(context)
@@ -35,6 +41,9 @@ async def show_roll(context):
 
 
 async def show_game_end(context):
+	"""
+	Show leaderboard and safely clear all the game data 
+	"""
 	await safe_await(
 		context.bot.send_message,
 		chat_id=context._chat_id,
@@ -46,7 +55,12 @@ async def show_game_end(context):
 
 
 async def safe_await(function, *args, **kwargs):
+	"""
+	Try to run given function (send message, delete message etc.) 
+	on given arguments and suppress exceptions if user blocked 
+	the bot or deleted the chat or the message.
+	"""
 	try:
 		await function(*args, **kwargs)
 	except (BadRequest, Forbidden):
-		pass # Continue if user blocked the bot or deleted the chat or the message
+		pass

@@ -12,9 +12,11 @@ class ExtraordinaryRoll(Exception):
 
 
 class Game:
-	"""Representation of a zonk game storing its state."""
-	"""All the attributes should be used as read-only."""
-	"""To change game state, use public methods."""
+	"""
+	Representation of a zonk game storing its state.
+	All the attributes should be used as read-only.
+	To change the game state, use public methods.
+	"""
 	def __init__(self, type, players):
 		if type not in ('classic', 'butovo'):
 			raise ValueError("Invalid argument in Game(type, players). "

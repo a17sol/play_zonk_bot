@@ -11,6 +11,10 @@ class InitiatorDeletionError(Exception):
 
 
 class Invite:
+	"""
+	Representation of a game invite.
+	To change the invite state, use only add and remove methods.
+	"""
 	def __init__(self, type, initiator):
 		if type not in ('classic', 'butovo'):
 			raise ValueError("Invalid argument in Game(type, players). "

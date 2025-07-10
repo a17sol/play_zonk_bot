@@ -7,6 +7,7 @@ import ui
 import invite
 import game
 from helpers import show_roll, show_game_end, kick
+from moderation import LazyLimiter
 
 
 def register_handlers(app):
@@ -109,6 +110,8 @@ async def button_callback(update, context):
 	query = update.callback_query
 	user = query.from_user
 	button_type, owner_id = query.data.split(":")
+
+	LazyLimiter.add_query(query)
 
 	if button_type == "join":
 		try:

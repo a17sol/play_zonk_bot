@@ -112,6 +112,10 @@ async def button_callback(update, context):
 	button_type, owner_id = query.data.split(":")
 
 	LazyLimiter.add_query(query)
+	if LazyLimiter.chat_is_waiting(context._chat_id):
+		sec = int(LazyLimiter.remaining_time(context._chat_id))
+		await query.answer(ui.retry_after(sec), show_alert=True)
+		return
 
 	if button_type == "join":
 		try:

@@ -43,11 +43,20 @@ async def check_inactivity(context):
 class LazyLimiter(BaseRateLimiter):
 	chat_id_2_query = {}
 	query_id_2_chat_id = {}
+	chat_id_2_retry_time = {}
 
 	@classmethod
 	def add_query(cls, query):
 		cls.chat_id_2_query[query.message.chat.id] = query
 		cls.query_id_2_chat_id[query.id] = query.message.chat.id
+
+	@classmethod
+	def chat_is_waiting(cls, chat_id):
+		return chat_id in cls.chat_id_2_retry_time
+
+	@classmethod
+	def remaining_time(cls, chat_id):
+		return cls.chat_id_2_retry_time[chat_id] - time()
 
 	def __init__(self):
 		pass
@@ -67,8 +76,11 @@ class LazyLimiter(BaseRateLimiter):
 			try:
 				return await callback(*args, **kwargs)
 			except RetryAfter as exc:
+				chat_id = data["chat_id"]
 				sleep = exc.retry_after + 1
+				self.chat_id_2_retry_time[chat_id] = time() + sleep
 				logging.info("Flood control exceeded. Retry after %d sec.", sleep)
-				query = self.chat_id_2_query[data["chat_id"]]
+				query = self.chat_id_2_query[chat_id]
 				await query.answer(ui.retry_after(sleep), show_alert=True)
 				await asyncio.sleep(sleep)
+				del self.chat_id_2_retry_time[chat_id]

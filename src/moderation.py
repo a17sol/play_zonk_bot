@@ -80,7 +80,9 @@ class LazyLimiter(BaseRateLimiter):
 				sleep = exc.retry_after + 1
 				self.chat_id_2_retry_time[chat_id] = time() + sleep
 				logging.info("Flood control exceeded. Retry after %d sec.", sleep)
-				query = self.chat_id_2_query[chat_id]
-				await query.answer(ui.retry_after(sleep), show_alert=True)
+				if query := self.chat_id_2_query.get(chat_id, None):
+					# Only answer if the query exists.
+					# It doesn't if the violation occured in the poll_answer().
+					await query.answer(ui.retry_after(sleep), show_alert=True)
 				await asyncio.sleep(sleep)
 				del self.chat_id_2_retry_time[chat_id]

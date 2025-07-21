@@ -83,8 +83,9 @@ class Game:
 		if len(self.players) <= 1:
 			self._game_end()
 			return
-		if target_player_idx <= self.current_player:
-			self.current_player -= 1
+		if target_player_idx > self.current_player:
+			return
+		self.current_player -= 1
 		if target_player_idx == self.current_player + 1:
 			self._next_move()
 			self._roll(6)

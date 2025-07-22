@@ -7,7 +7,7 @@ import ui
 import invite
 import game
 from helpers import show_roll, show_game_end, kick
-from moderation import LazyLimiter
+from rate_limiter import LazyLimiter
 
 
 def register_handlers(app):

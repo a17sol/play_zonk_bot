@@ -7,7 +7,8 @@ from telegram.ext import Application, PicklePersistence, PersistenceInput, Defau
 
 from handlers import register_handlers
 from poll import register_poll_handler, poll_storage_init
-from moderation import set_up_moderation, LazyLimiter
+from moderation import set_up_moderation
+from rate_limiter import LazyLimiter
 
 
 log_dir = os.path.join(os.path.dirname(__file__), "..", "logs")

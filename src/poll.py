@@ -39,8 +39,14 @@ async def poll_storage_init(application):
 
 async def create_poll(context):
 	current_user = context.chat_data['game'].current_user()
+	first_time = True
 	while True:
 		try:
+			if not first_time:
+				await context.bot.send_message(
+					chat_id=context._chat_id,
+					text=ui.poll_send_error
+				)
 			poll_msg = await context.bot.send_poll(
 				chat_id=context._chat_id,
 				question=ui.poll_header(current_user.first_name),
@@ -51,10 +57,7 @@ async def create_poll(context):
 			)
 			break
 		except Exception as e:
-			await context.bot.send_message(
-				chat_id=context._chat_id,
-				text=ui.poll_send_error
-			)
+			first_time = False
 			logging.warning(
 				"%s exception while sending poll message. Retrying.",
 				type(e).__name__

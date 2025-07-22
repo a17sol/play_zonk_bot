@@ -1,7 +1,7 @@
 from telegram.error import BadRequest, Forbidden
 
 import ui
-from poll import create_poll, unstore_poll
+from poll import create_poll, unstore_poll, store_poll
 from game import ExtraordinaryRoll, GameEnd
 
 
@@ -30,12 +30,13 @@ async def show_roll(context):
 		chat_id=context._chat_id,
 		text=ui.make_scoreboard(context)
 	)
-	poll = unstore_poll(context)
-	await create_poll(context)
+	new_poll = await create_poll(context)
+	old_poll = unstore_poll(context)
+	store_poll(context, new_poll)
 	await safe_await(context.chat_data["board"].delete)
 	context.chat_data["board"] = tmp_board
 	try:
-		await poll.delete()
+		await old_poll.delete()
 	except AttributeError:
 		pass # Suppress error on first move when unstore_poll returns None
 

@@ -3,6 +3,7 @@ import logging
 from telegram.ext import PollAnswerHandler
 
 import ui
+from rate_limiter import LazyLimiter
 
 
 def register_poll_handler(app):
@@ -14,6 +15,8 @@ def register_poll_handler(app):
 async def poll_answer(update, context):
 	poll_answer = update.poll_answer
 	poll_message = context.bot_data["poll_id:poll_msg"][poll_answer.poll_id]
+	if LazyLimiter.chat_is_waiting(poll_message.chat.id):
+		return
 	chat_data = context.application.chat_data[poll_message.chat.id]
 	answered_user = poll_answer.user.id
 	intended_user = chat_data['game'].current_user().id
@@ -56,9 +59,11 @@ async def create_poll(context):
 				"%s exception while sending poll message. Retrying.",
 				type(e).__name__
 			)
+	return poll_msg
+
+def store_poll(context, poll_msg):
 	context.bot_data["poll_id:poll_msg"][poll_msg.poll.id] = poll_msg
 	context.bot_data["chat_id:poll_msg"][context._chat_id] = poll_msg
-
 
 def unstore_poll(context):
 	if poll_msg := context.bot_data["chat_id:poll_msg"].get(context._chat_id, None):

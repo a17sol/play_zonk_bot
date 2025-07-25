@@ -31,9 +31,9 @@ async def poll_answer(update, context):
 # Poll management
 
 async def poll_storage_init(application):
-	if not application.bot_data.get("poll_id:poll_msg", False):
+	if "poll_id:poll_msg" not in application.bot_data:
 		application.bot_data["poll_id:poll_msg"] = {}
-	if not application.bot_data.get("chat_id:poll_msg", False):
+	if "chat_id:poll_msg" not in application.bot_data:
 		application.bot_data["chat_id:poll_msg"] = {}
 
 

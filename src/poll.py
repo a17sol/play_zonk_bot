@@ -1,6 +1,7 @@
 import logging
 
 from telegram.ext import PollAnswerHandler
+from telegram.error import BadRequest, Forbidden, ChatMigrated
 
 import ui
 from rate_limiter import LazyLimiter
@@ -39,6 +40,7 @@ async def poll_storage_init(application):
 
 async def create_poll(context):
 	current_user = context.chat_data['game'].current_user()
+	poll_msg = None
 	first_time = True
 	while True:
 		try:
@@ -56,11 +58,19 @@ async def create_poll(context):
 				reply_markup=ui.make_notake_markup(current_user.id)
 			)
 			break
+		except (BadRequest, Forbidden, ChatMigrated) as e:
+			logging.warning(
+				"%s(%s) exception while sending poll message.",
+				type(e).__name__,
+				e
+			)
+			break
 		except Exception as e:
 			first_time = False
 			logging.warning(
-				"%s exception while sending poll message. Retrying.",
-				type(e).__name__
+				"%s(%s) exception while sending poll message. Retrying.",
+				type(e).__name__,
+				e
 			)
 	return poll_msg
 
